@@ -1,0 +1,2 @@
+# Для скрипта загрузки датасета ноутбуков: scripts/download_laptop_dataset.py
+kagglehub>=0.2.0

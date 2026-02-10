@@ -1,0 +1,11 @@
+User-agent: *
+Allow: /
+
+# Sitemaps
+Sitemap: https://restartsp.com/sitemap.xml
+
+# Disallow private areas
+Disallow: /my/
+Disallow: /buyer/
+Disallow: /tools/
+Disallow: /api/

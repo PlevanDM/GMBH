@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 130 32" fill="none">
+  <text x="0" y="24" font-family="system-ui, -apple-system, sans-serif" font-size="22" font-weight="700" fill="currentColor" letter-spacing="-0.02em">restart</text>
+  <!-- оранжевый треугольник сразу после "t", остриём вниз-вправо -->
+  <path d="M78 10 L78 22 L92 16 Z" fill="#f97316"/>
+</svg>

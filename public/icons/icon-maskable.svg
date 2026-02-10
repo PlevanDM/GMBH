@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="512" y2="512" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#0f172a"/>
+      <stop offset="100%" stop-color="#1e3a5f"/>
+    </linearGradient>
+    <linearGradient id="ac" x1="199.6" y1="46.1" x2="267.1" y2="113.6" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#f97316"/>
+      <stop offset="100%" stop-color="#fb923c"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="112.6" fill="url(#bg)"/>
+  <g transform="translate(102.5, 102.5)">
+    <rect x="199.6" y="46.1" width="67.5" height="67.5" rx="13.8" fill="url(#ac)" transform="rotate(12 233.4 79.9)" opacity="0.9"/>
+    <text x="144.3" y="214.9" text-anchor="middle" fill="white" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="162.7" font-weight="700" letter-spacing="-1">R</text>
+  </g>
+</svg>
