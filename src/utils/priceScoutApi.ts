@@ -18,7 +18,7 @@
  *  - Cross-validation with estimate engine
  */
 
-import { quickEstimate, crossValidate, type PriceEstimate } from './priceEstimator'
+import { quickEstimate, crossValidate, type PriceEstimate, type ValuationType } from './priceEstimator'
 
 /* ── Types ── */
 export interface MarketPrice {
@@ -47,6 +47,7 @@ export interface PriceScoutResult {
   query: string
   brand: string
   model: string
+  valuationType: ValuationType
   sources: MarketPrice[]
   /** Per-source fetch status for UI feedback */
   sourceStatuses: SourceStatus[]
@@ -574,18 +575,20 @@ export async function fetchPriceScout(
   brand: string,
   model: string,
   query?: string,
-  options?: { skipCache?: boolean },
+  options?: { skipCache?: boolean; valuationType?: ValuationType },
 ): Promise<PriceScoutResult> {
   const searchQuery = query || `${brand} ${model}`.trim()
+  const vType = options?.valuationType || 'retail'
+  const cacheKey = `${vType}:${searchQuery}`
 
   // Check cache
   if (!options?.skipCache) {
-    const cached = getCached(searchQuery)
+    const cached = getCached(cacheKey)
     if (cached) return cached
   }
 
   // Get local estimate (always works, needed for relevance filtering)
-  const estimate = quickEstimate(brand, model)
+  const estimate = quickEstimate(brand, model, vType)
 
   // Fetch from all 6 sources in parallel
   const SOURCE_META = [
@@ -627,6 +630,7 @@ export async function fetchPriceScout(
     query: searchQuery,
     brand,
     model,
+    valuationType: vType,
     sources,
     sourceStatuses,
     estimate,
@@ -636,7 +640,7 @@ export async function fetchPriceScout(
   }
 
   // Cache + history
-  setCache(searchQuery, result)
+  setCache(cacheKey, result)
   addToHistory(searchQuery, result)
 
   return result

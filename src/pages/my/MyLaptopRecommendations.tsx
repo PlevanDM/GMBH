@@ -7,7 +7,9 @@ import {
 import { useInventory } from '../../store/inventoryStore'
 import { getMarketplaceLinks, getProductSearchQuery, type MarketplaceLink } from '../../utils/marketplaceUrls'
 import { fetchPriceScout, getPriceHistory, type PriceScoutResult, type MarketPrice } from '../../utils/priceScoutApi'
-import { quickEstimate, type PriceEstimate, parseDeviceFromQuery } from '../../utils/priceEstimator'
+import { quickEstimate, type PriceEstimate, parseDeviceFromQuery, type ValuationType } from '../../utils/priceEstimator'
+import { useBuyerLocale } from '../../i18n/BuyerLocaleContext'
+import { getSellerPortalLocale } from '../../i18n'
 
 /* ── Marketplace URLs ── */
 function getEbayUrl(query: string): string {
@@ -230,9 +232,12 @@ function PriceHistorySection({ query }: { query: string }) {
 /* ═══════════════════════════════════════════════════════════════════════════ */
 
 export default function MyLaptopRecommendations() {
+  const { locale } = useBuyerLocale()
+  const st = useMemo(() => getSellerPortalLocale(locale), [locale])
   const { items } = useInventory()
   const [brand, setBrand] = useState('')
   const [model, setModel] = useState('')
+  const [valuationType, setValuationType] = useState<ValuationType>('retail')
   const [activeQuery, setActiveQuery] = useState<string | null>(null)
   const [saved, setSaved] = useState<SavedLookup[]>(loadSaved)
   const [copiedId, setCopiedId] = useState<string | null>(null)
@@ -264,13 +269,13 @@ export default function MyLaptopRecommendations() {
     if (estimateTimerRef.current) clearTimeout(estimateTimerRef.current)
     estimateTimerRef.current = setTimeout(() => {
       if (brand.trim() || model.trim()) {
-        setLiveEstimate(quickEstimate(brand, model))
+        setLiveEstimate(quickEstimate(brand, model, valuationType))
       } else {
         setLiveEstimate(null)
       }
     }, 300)
     return () => { if (estimateTimerRef.current) clearTimeout(estimateTimerRef.current) }
-  }, [brand, model])
+  }, [brand, model, valuationType])
 
   /* Fetch prices when activeQuery changes — clear stale result immediately */
   useEffect(() => {
@@ -279,7 +284,7 @@ export default function MyLaptopRecommendations() {
     setPriceResult(null) // ← clear stale result from previous query
     setFetchError(null)
     setLoading(true)
-    fetchPriceScout(brand, model, activeQuery).then((result) => {
+    fetchPriceScout(brand, model, activeQuery, { valuationType }).then((result) => {
       if (!cancelled) { setPriceResult(result); setLoading(false) }
     }).catch((err) => {
       if (!cancelled) {
@@ -288,7 +293,7 @@ export default function MyLaptopRecommendations() {
       }
     })
     return () => { cancelled = true }
-  }, [activeQuery]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [activeQuery, valuationType]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSearch = useCallback(() => {
     const q = getProductSearchQuery(brand, model).trim()
@@ -300,13 +305,13 @@ export default function MyLaptopRecommendations() {
     if (!activeQuery) return
     setFetchError(null)
     setLoading(true)
-    fetchPriceScout(brand, model, activeQuery, { skipCache: true }).then((result) => {
+    fetchPriceScout(brand, model, activeQuery, { skipCache: true, valuationType }).then((result) => {
       setPriceResult(result); setLoading(false)
     }).catch((err) => {
       setLoading(false)
       setFetchError(err?.message || 'Ошибка загрузки данных')
     })
-  }, [activeQuery, brand, model])
+  }, [activeQuery, brand, model, valuationType])
 
   const handleSelectInventory = useCallback((id: string) => {
     const item = items.find((i) => i.id === id)
@@ -347,11 +352,11 @@ export default function MyLaptopRecommendations() {
     setBatchRunning(true)
     const results: Record<string, PriceEstimate> = {}
     for (const item of inventoryDevices) {
-      results[item.id] = quickEstimate(item.brand || '', item.description || '')
+      results[item.id] = quickEstimate(item.brand || '', item.description || '', valuationType)
     }
     setBatchResults(results)
     setBatchRunning(false)
-  }, [inventoryDevices])
+  }, [inventoryDevices, valuationType])
 
   /* All marketplace links */
   const allLinks: (MarketplaceLink & { color: typeof MC[string]; priceData?: MarketPrice })[] = useMemo(() => {
@@ -381,19 +386,34 @@ export default function MyLaptopRecommendations() {
         <div>
           <h2 className="text-lg font-bold text-primary flex items-center gap-2">
             <TrendingUp className="w-5 h-5 text-accent" />
-            Скаут цен — Price Scout
+            {st.scout.title}
           </h2>
           <p className="mt-1 text-sm text-neutral-500">
-            Реальные цены с 6 площадок + алгоритмическая оценка по 200+ моделям. eBay, Idealo, BackMarket, Geizhals, reBuy, Amazon.
+            {st.scout.subtitle}
           </p>
         </div>
       </div>
 
       {/* ── Search form ── */}
       <div className="mt-6 rounded-xl border border-neutral-200 bg-gradient-to-br from-neutral-50 to-white p-5">
+        <div className="mb-4 flex flex-wrap gap-2">
+          {(['retail', 'buyback', 'wholesale'] as ValuationType[]).map((t) => (
+            <button
+              key={t}
+              onClick={() => setValuationType(t)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all border ${
+                valuationType === t
+                  ? 'bg-accent text-white border-accent shadow-sm'
+                  : 'bg-white text-neutral-500 border-neutral-200 hover:border-neutral-300'
+              }`}
+            >
+              {t === 'retail' ? 'Retail' : t === 'buyback' ? 'Buyback' : 'Wholesale'}
+            </button>
+          ))}
+        </div>
         <div className="flex flex-col sm:flex-row gap-3">
           <div className="flex-1 min-w-0">
-            <label htmlFor="ps-brand" className="block text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-1.5">Бренд</label>
+            <label htmlFor="ps-brand" className="block text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-1.5">{st.scout.brand}</label>
             <input
               id="ps-brand" type="text" value={brand}
               onChange={(e) => setBrand(e.target.value)}
@@ -403,7 +423,7 @@ export default function MyLaptopRecommendations() {
             />
           </div>
           <div className="flex-[2] min-w-0">
-            <label htmlFor="ps-model" className="block text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-1.5">Модель / описание</label>
+            <label htmlFor="ps-model" className="block text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-1.5">{st.scout.model}</label>
             <input
               id="ps-model" type="text" value={model}
               onChange={(e) => setModel(e.target.value)}
@@ -418,7 +438,7 @@ export default function MyLaptopRecommendations() {
               className="inline-flex items-center justify-center gap-2 rounded-lg bg-accent px-5 py-2.5 text-sm font-semibold text-white hover:bg-accent-hover active:scale-[0.97] transition-all min-h-[44px] disabled:opacity-50 disabled:cursor-not-allowed w-full sm:w-auto"
             >
               <Search className="w-4 h-4" />
-              Найти цены
+              {st.scout.findButton}
             </button>
           </div>
         </div>
@@ -427,7 +447,7 @@ export default function MyLaptopRecommendations() {
         {liveEstimate && !activeQuery && (
           <div className="mt-3 rounded-lg bg-accent/5 border border-accent/10 px-4 py-2.5 flex flex-wrap items-center gap-3">
             <DollarSign className="w-4 h-4 text-accent shrink-0" />
-            <span className="text-xs text-neutral-600">Предварительная оценка:</span>
+            <span className="text-xs text-neutral-600">{st.scout.estimate}:</span>
             <span className="text-sm font-bold text-primary">{fmtPrice(liveEstimate.mid)}</span>
             <span className="text-[11px] text-neutral-400">({fmtPrice(liveEstimate.low)} – {fmtPrice(liveEstimate.high)})</span>
             <ConfidenceBadge value={liveEstimate.confidence} />
@@ -443,7 +463,7 @@ export default function MyLaptopRecommendations() {
             <div className="flex flex-col sm:flex-row sm:items-end gap-3">
               <div className="flex-1 min-w-0">
                 <label htmlFor="ps-inventory" className="text-xs font-semibold text-neutral-500 uppercase tracking-wider flex items-center gap-1.5 mb-1.5">
-                  <Package className="w-3.5 h-3.5" /> Или выбрать из прайса
+                  <Package className="w-3.5 h-3.5" /> {st.scout.inventorySelect}
                 </label>
                 <select id="ps-inventory"
                   onChange={(e) => { if (e.target.value) handleSelectInventory(e.target.value) }}
@@ -463,7 +483,7 @@ export default function MyLaptopRecommendations() {
                 <button type="button" onClick={handleBatchAnalyze} disabled={batchRunning}
                   className="inline-flex items-center gap-1.5 rounded-lg px-3.5 py-2.5 text-xs font-semibold bg-accent/10 text-accent hover:bg-accent/20 border border-accent/20 transition-colors min-h-[44px] whitespace-nowrap disabled:opacity-50">
                   <ListChecks className="w-4 h-4" />
-                  Оценить все ({inventoryDevices.length})
+                  {st.scout.batchButton} ({inventoryDevices.length})
                 </button>
               )}
             </div>
@@ -477,7 +497,7 @@ export default function MyLaptopRecommendations() {
           <div className="px-4 py-3 border-b border-neutral-100 flex items-center justify-between">
             <h3 className="text-sm font-bold text-primary flex items-center gap-2">
               <ListChecks className="w-4 h-4 text-accent" />
-              Быстрая оценка всего прайса ({inventoryDevices.length} шт.)
+              {st.scout.batchButton} ({inventoryDevices.length} шт.)
             </h3>
             <button type="button" onClick={() => setBatchResults({})}
               className="text-[10px] text-neutral-400 hover:text-neutral-600 transition-colors">
@@ -553,23 +573,23 @@ export default function MyLaptopRecommendations() {
           {/* Header */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
-              <h3 className="text-sm font-semibold text-primary">Анализ цен для:</h3>
+              <h3 className="text-sm font-semibold text-primary">{st.scout.resultsFor}:</h3>
               <p className="text-base font-bold text-accent mt-0.5">{activeQuery}</p>
             </div>
             <div className="flex items-center gap-2">
               {priceResult?.cached && (
-                <span className="text-[10px] text-neutral-400 bg-neutral-100 px-2 py-1 rounded-full">кэш</span>
+                <span className="text-[10px] text-neutral-400 bg-neutral-100 px-2 py-1 rounded-full">cache</span>
               )}
               <button type="button" onClick={handleRefresh} disabled={loading}
                 className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold bg-neutral-100 text-neutral-600 hover:bg-neutral-200 border border-neutral-200 transition-colors min-h-[36px] disabled:opacity-50">
-                <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} /> Обновить
+                <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} /> {st.scout.refresh}
               </button>
               <button type="button" onClick={handleToggleSave}
                 className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold transition-colors min-h-[36px] ${
                   isSaved ? 'bg-accent/10 text-accent border border-accent/20' : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200 border border-neutral-200'
                 }`}>
                 {isSaved ? <BookmarkCheck className="w-3.5 h-3.5" /> : <Bookmark className="w-3.5 h-3.5" />}
-                {isSaved ? 'Сохранено' : 'Сохранить'}
+                {isSaved ? st.scout.saved : st.scout.save}
               </button>
             </div>
           </div>
@@ -627,7 +647,9 @@ export default function MyLaptopRecommendations() {
             <div className="rounded-xl border-2 border-accent/20 bg-gradient-to-r from-accent/5 via-white to-accent/5 p-5">
               <div className="flex flex-wrap items-center gap-2 mb-3">
                 <DollarSign className="w-5 h-5 text-accent" />
-                <h4 className="text-sm font-bold text-primary">Рыночная цена</h4>
+                <h4 className="text-sm font-bold text-primary">
+                  {valuationType === 'buyback' ? st.scout.buybackPrice : valuationType === 'wholesale' ? st.scout.wholesalePrice : st.scout.marketPrice}
+                </h4>
                 {loading && <Loader2 className="w-4 h-4 text-accent animate-spin" />}
                 {priceResult && <ConfidenceBadge value={priceResult.aggregated.confidence} />}
               </div>
@@ -650,7 +672,7 @@ export default function MyLaptopRecommendations() {
                   </div>
                   {priceResult && priceResult.aggregated.weightedMid !== priceResult.aggregated.mid && (
                     <div className="text-[10px] text-neutral-400 mt-0.5">
-                      mean: {fmtPrice(priceResult.aggregated.mid)}
+                    unweighted: {fmtPrice(priceResult.aggregated.mid)}
                     </div>
                   )}
                 </div>
@@ -679,6 +701,11 @@ export default function MyLaptopRecommendations() {
                       Рыночные данные недоступны — показана алгоритмическая оценка
                     </span>
                   )}
+                  {valuationType !== 'retail' && (
+                    <span className="text-accent bg-accent/5 px-1.5 py-0.5 rounded">
+                      Применён коэффициент {valuationType === 'buyback' ? 'выкупа (0.65)' : 'опта (0.82)'}
+                    </span>
+                  )}
                 </div>
               )}
             </div>
@@ -693,7 +720,7 @@ export default function MyLaptopRecommendations() {
           {priceResult && (
             <div>
               <h4 className="text-xs font-bold text-neutral-500 uppercase tracking-wider mb-2">
-                Источники цен
+                {st.scout.sources}
               </h4>
               {/* Source status badges */}
               {priceResult.sourceStatuses && priceResult.sourceStatuses.length > 0 && (
@@ -734,7 +761,7 @@ export default function MyLaptopRecommendations() {
             <details className="rounded-xl border border-neutral-200 bg-white">
               <summary className="px-4 py-3 cursor-pointer text-xs font-semibold text-neutral-600 hover:text-primary transition-colors flex items-center gap-2">
                 <BarChart3 className="w-4 h-4 text-accent" />
-                Алгоритмическая оценка — детали расчёта
+                {st.scout.details}
                 <ConfidenceBadge value={priceResult.estimate.confidence} />
                 {priceResult.estimate.refModelUsed && (
                   <span className="text-[10px] text-accent bg-accent/10 px-2 py-0.5 rounded-full ml-2">
@@ -751,8 +778,8 @@ export default function MyLaptopRecommendations() {
                 </div>
                 <div className="space-y-1">
                   {priceResult.estimate.factors.map((f, i) => (
-                    <div key={i} className="text-xs text-neutral-600 flex items-center gap-1.5">
-                      <span className="w-1.5 h-1.5 rounded-full bg-accent/40 shrink-0" />
+                    <div key={i} className={`text-xs flex items-center gap-1.5 ${f.includes('Valuation') ? 'text-accent font-semibold' : 'text-neutral-600'}`}>
+                      <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${f.includes('Valuation') ? 'bg-accent' : 'bg-accent/40'}`} />
                       {f}
                     </div>
                   ))}
@@ -807,9 +834,7 @@ export default function MyLaptopRecommendations() {
             <TrendingUp className="w-4 h-4 shrink-0 mt-0.5 text-amber-500" />
             <div>
               <p>
-                <strong>Как это работает:</strong> Собираем цены с 6 площадок (eBay.de, BackMarket, Idealo, Geizhals, reBuy, Amazon.de),
-                фильтруем нерелевантные (аксессуары, зарядки), удаляем выбросы по IQR, считаем взвешенную медиану.
-                Параллельно — алгоритмическая оценка по базе 200+ популярных моделей.
+                {st.scout.tip}
               </p>
               <p className="mt-1 text-amber-600/80">
                 Точность зависит от специфичности запроса: чем больше деталей (RAM, SSD, год, CPU) — тем точнее.

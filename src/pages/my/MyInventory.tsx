@@ -765,8 +765,11 @@ export default function MyInventory() {
                   <th className="px-3 py-2 font-semibold text-neutral-700">S/N</th>
                   <th className="px-3 py-2 font-semibold text-neutral-700">Фото URL</th>
                   <th className="px-3 py-2 font-semibold text-neutral-700">Процессор</th>
+                  <th className="px-3 py-2 font-semibold text-neutral-700 text-[11px]">CPU (norm)</th>
                   <th className="px-3 py-2 font-semibold text-neutral-700">RAM</th>
+                  <th className="px-3 py-2 font-semibold text-neutral-700 text-[11px]">RAM (GB)</th>
                   <th className="px-3 py-2 font-semibold text-neutral-700">Диск</th>
+                  <th className="px-3 py-2 font-semibold text-neutral-700 text-[11px]">Disc (GB)</th>
                   <th className="px-3 py-2 font-semibold text-neutral-700">GPU</th>
                   <th className="px-3 py-2 font-semibold text-neutral-700">Год</th>
                   <th className="px-3 py-2 font-semibold text-neutral-700">Циклы АКБ</th>
@@ -866,6 +869,14 @@ export default function MyInventory() {
                       </td>
                       <td className="px-3 py-2">
                         <input
+                          value={it.laptopCpuFamily ?? ''}
+                          onChange={(e) => updateItem(it.id, { laptopCpuFamily: e.target.value || undefined })}
+                          placeholder="—"
+                          className="w-full min-w-[60px] max-w-[80px] rounded border border-neutral-200 bg-neutral-50 px-2 py-1 text-[10px]"
+                        />
+                      </td>
+                      <td className="px-3 py-2">
+                        <input
                           value={it.ram_raw ?? ''}
                           onChange={(e) => updateItem(it.id, { ram_raw: e.target.value || undefined })}
                           placeholder="—"
@@ -874,10 +885,28 @@ export default function MyInventory() {
                       </td>
                       <td className="px-3 py-2">
                         <input
+                          type="number"
+                          value={it.laptopRamGb ?? ''}
+                          onChange={(e) => updateItem(it.id, { laptopRamGb: parseInt(e.target.value) || undefined })}
+                          placeholder="—"
+                          className="w-full min-w-[40px] max-w-[60px] rounded border border-neutral-200 bg-neutral-50 px-2 py-1 text-[10px]"
+                        />
+                      </td>
+                      <td className="px-3 py-2">
+                        <input
                           value={it.storage_raw ?? ''}
                           onChange={(e) => updateItem(it.id, { storage_raw: e.target.value || undefined })}
                           placeholder="—"
                           className="w-full min-w-[60px] max-w-[90px] rounded border border-neutral-300 px-2 py-1 text-xs"
+                        />
+                      </td>
+                      <td className="px-3 py-2">
+                        <input
+                          type="number"
+                          value={it.laptopStorageGb ?? ''}
+                          onChange={(e) => updateItem(it.id, { laptopStorageGb: parseInt(e.target.value) || undefined })}
+                          placeholder="—"
+                          className="w-full min-w-[50px] max-w-[70px] rounded border border-neutral-200 bg-neutral-50 px-2 py-1 text-[10px]"
                         />
                       </td>
                       <td className="px-3 py-2">

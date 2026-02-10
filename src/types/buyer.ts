@@ -101,6 +101,8 @@ export interface RfqItem {
   quantity: number
   targetPrice: number | null
   currency: string
+  inventoryNumber?: string | null
+  serialNumber?: string | null
 }
 
 export interface RfqQuoteItem {

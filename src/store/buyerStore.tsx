@@ -14,6 +14,8 @@ import {
   normalizeLocationKey,
 } from '../data/catalogs'
 import { getDemoImageUrl } from '../data/demoImages'
+import { dataStorage as ds } from '../api/storageAdapter'
+import { estimatePrice, parseDeviceFromQuery } from '../utils/priceEstimator'
 import type {
   BuyerCompany,
   BuyerUser,
@@ -43,20 +45,11 @@ const DEFAULT_COMPANY_ID = 'company-1'
 const DEFAULT_USER_ID = 'user-1'
 
 function loadJson<T>(key: string, fallback: T): T {
-  try {
-    const raw = localStorage.getItem(key)
-    return raw ? JSON.parse(raw) : fallback
-  } catch {
-    return fallback
-  }
+  return ds.getItem<T>(key) || fallback
 }
 
 function saveJson(key: string, value: unknown) {
-  try {
-    localStorage.setItem(key, JSON.stringify(value))
-  } catch (e) {
-    // Storage write failed — gracefully ignored
-  }
+  ds.setItem(key, value)
 }
 
 const defaultCompany: BuyerCompany = {
@@ -117,7 +110,11 @@ export function buildStockFromInventory(
   let list: StockItem[] = inventoryItems
     .filter((it) => it.status === 'available')
     .map((it, i) => {
-      const fallbackPrice = 5000 + (it.id.split('').reduce((a, c) => a + c.charCodeAt(0), 0) % 50000)
+      // Use smart estimation instead of random high numbers
+      const device = parseDeviceFromQuery(it.brand || '', it.description || '')
+      const estimatedRetail = estimatePrice(device, 'retail').mid
+      const fallbackPrice = estimatedRetail > 0 ? estimatedRetail : 450
+
       const basePrice = it.price != null && it.price > 0 ? Math.round(it.price) : fallbackPrice
       const hasMyPrice = (it.id.length + companyId.length) % 3 === 0
       const brand =

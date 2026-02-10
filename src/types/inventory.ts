@@ -127,7 +127,7 @@ export const HEADER_ALIASES: Record<keyof ColumnMapping, string[]> = {
     'Category', 'Type', 'Категория', 'Тип', 'Item Description', 'Kategorie', 'Categorie', 'Kategoria', 'Categoría', 'Категорія',
   ],
   inventoryNumber: [
-    '№', 'No', 'No.', 'Inventory Number', 'Internal ID', 'ID', 'Инв. номер', 'Инвентарный номер', 'Tested',
+    '№', 'No', 'No.', 'Inventory Number', 'Internal ID', 'ID', 'Инв. номер', 'Инвентарный номер', 'Tested', 'In Box',
     'Nr', 'Number', 'Art', 'Article', 'Артикул', 'Код', 'Code', 'SKU', 'Artikelnummer', 'Numer', 'Număr', 'Número', 'Номер',
   ],
   serialNumber: [

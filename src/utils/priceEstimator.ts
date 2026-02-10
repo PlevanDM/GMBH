@@ -647,6 +647,8 @@ export function parseDeviceFromQuery(brand: string, model: string): ParsedDevice
 // Price calculation
 // ═══════════════════════════════════════════════════════════════════════════════
 
+export type ValuationType = 'retail' | 'buyback' | 'wholesale'
+
 export interface PriceEstimate {
   low: number
   mid: number
@@ -655,9 +657,10 @@ export interface PriceEstimate {
   source: 'estimate'
   factors: string[]
   refModelUsed?: string
+  valuationType: ValuationType
 }
 
-export function estimatePrice(device: ParsedDevice): PriceEstimate {
+export function estimatePrice(device: ParsedDevice, type: ValuationType = 'retail'): PriceEstimate {
   const factors: string[] = []
   let confidence = 25
 
@@ -716,6 +719,7 @@ export function estimatePrice(device: ParsedDevice): PriceEstimate {
       source: 'estimate',
       factors,
       refModelUsed: ref.tokens.join(' '),
+      valuationType: type,
     }
   }
 
@@ -801,18 +805,30 @@ export function estimatePrice(device: ParsedDevice): PriceEstimate {
     }
   }
 
-  const mid = Math.round(brandBase * seriesMult * cpuMult * gpuMult * rMult * sMult * scrMult * yearMult * condMult * refAdjust)
+  let mid = Math.round(brandBase * seriesMult * cpuMult * gpuMult * rMult * sMult * scrMult * yearMult * condMult * refAdjust)
+
+  // Apply valuation type multiplier
+  if (type === 'buyback') {
+    const buybackMult = 0.65 // 65% of retail used price is a safe buyback price
+    mid = Math.round(mid * buybackMult)
+    factors.push(`Valuation: Buyback (×${buybackMult}) — conservative price for purchase`)
+  } else if (type === 'wholesale') {
+    const wholesaleMult = 0.82 // 82% for wholesale/bulk
+    mid = Math.round(mid * wholesaleMult)
+    factors.push(`Valuation: Wholesale (×${wholesaleMult}) — bulk lot pricing`)
+  }
+
   confidence = Math.min(confidence, 85)
   const spread = confidence > 55 ? 0.15 : confidence > 40 ? 0.22 : 0.30
   const low = Math.round(mid * (1 - spread))
   const high = Math.round(mid * (1 + spread))
 
-  return { low, mid, high, confidence, source: 'estimate', factors }
+  return { low, mid, high, confidence, source: 'estimate', factors, valuationType: type }
 }
 
-export function quickEstimate(brand: string, model: string): PriceEstimate {
+export function quickEstimate(brand: string, model: string, type: ValuationType = 'retail'): PriceEstimate {
   const device = parseDeviceFromQuery(brand, model)
-  return estimatePrice(device)
+  return estimatePrice(device, type)
 }
 
 /** For cross-validation with fetched prices: adjust estimate confidence */

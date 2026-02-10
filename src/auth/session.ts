@@ -44,19 +44,31 @@ export function authHeader(): Record<string, string> {
   return { Authorization: `Bearer ${s.token}` }
 }
 
+import { exportRfqToExcel } from '../utils/exportRfq'
+
 export async function exportRfq(id: string, format: 'pdf' | 'xlsx'): Promise<void> {
-  const res = await fetch(`/api/buyer/rfqs/${id}/export?format=${format}`, {
-    method: 'GET',
-    headers: { ...authHeader() },
-  })
-  if (!res.ok) return
-  const blob = await res.blob()
-  const url = window.URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = `rfq-${id}.${format}`
-  document.body.appendChild(a)
-  a.click()
-  a.remove()
-  window.URL.revokeObjectURL(url)
+  // In a real app, this would be an API call.
+  // For now, we fetch from the store and use our client-side utility.
+  // Note: this assumes we can access the store data.
+  // Since we are in a SPA with localStorage stores, we can just load from localStorage here
+  // or let the components handle it.
+  // To keep session.ts clean, we'll implement a basic redirect for now.
+
+  const rfqsRaw = localStorage.getItem('restart-buyer-rfqs')
+  if (!rfqsRaw) return
+  try {
+    const rfqs = JSON.parse(rfqsRaw)
+    const rfq = rfqs.find((r: any) => r.id === id)
+    if (!rfq) return
+
+    if (format === 'xlsx') {
+      exportRfqToExcel(rfq)
+    } else {
+      // PDF fallback
+      alert('Экспорт в PDF будет доступен в полной версии. Пока используйте Excel.')
+      exportRfqToExcel(rfq)
+    }
+  } catch (e) {
+    console.error('Export failed', e)
+  }
 }

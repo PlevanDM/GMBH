@@ -1,6 +1,8 @@
 import type { ColumnMapping, InventoryItem, RawRow } from '../types/inventory'
 import { HEADER_ALIASES } from '../types/inventory'
 import * as XLSX from 'xlsx'
+import { parseDeviceFromQuery } from './priceEstimator'
+import { parseRamGb, parseStorageGb } from '../data/laptopSpecs'
 
 export interface ParsedFile {
   sheetNames: string[]
@@ -350,6 +352,14 @@ export function mapRowsToItems(
         ? (extraStr ? `${notesFromMapping} | ${extraStr}` : notesFromMapping)
         : (extraStr || undefined)
 
+      const ramRaw = mapping.ram ? getCell(row, mapping.ram) || undefined : undefined
+      const storageRaw = mapping.storage ? getCell(row, mapping.storage) || undefined : undefined
+      const gpuRaw = mapping.gpu ? getCell(row, mapping.gpu) || undefined : undefined
+      const cpuRaw = mapping.processor ? getCell(row, mapping.processor) || undefined : undefined
+
+      // Enhanced laptop normalization
+      const device = parseDeviceFromQuery(brand || '', `${desc} ${cpuRaw || ''} ${ramRaw || ''} ${storageRaw || ''}`)
+
       return {
         id: crypto.randomUUID(),
         description: desc,
@@ -363,10 +373,10 @@ export function mapRowsToItems(
         quantity: qtyVal ? parseNumber(qtyVal) : undefined,
         sku: mapping.sku ? getCell(row, mapping.sku) || undefined : undefined,
         imageUrl: mapping.imageUrl ? getCell(row, mapping.imageUrl) || undefined : undefined,
-        processor: mapping.processor ? getCell(row, mapping.processor) || undefined : undefined,
-        ram_raw: mapping.ram ? getCell(row, mapping.ram) || undefined : undefined,
-        storage_raw: mapping.storage ? getCell(row, mapping.storage) || undefined : undefined,
-        gpu_raw: mapping.gpu ? getCell(row, mapping.gpu) || undefined : undefined,
+        processor: cpuRaw,
+        ram_raw: ramRaw,
+        storage_raw: storageRaw,
+        gpu_raw: gpuRaw,
         year: mapping.year ? getCell(row, mapping.year) || undefined : undefined,
         batteryCycles: mapping.batteryCycles ? getCell(row, mapping.batteryCycles) || undefined : undefined,
         batteryHealth: mapping.batteryHealth ? getCell(row, mapping.batteryHealth) || undefined : undefined,
@@ -375,6 +385,15 @@ export function mapRowsToItems(
         createdAt: now,
         updatedAt: now,
         sourceRow: idx + 1,
+
+        // Normalized laptop fields
+        laptopSeries: device.series || undefined,
+        laptopCpuFamily: device.cpuKey || undefined,
+        laptopRamGb: parseRamGb(ramRaw) || device.ramGb || undefined,
+        laptopStorageGb: parseStorageGb(storageRaw) || device.storageGb || undefined,
+        laptopStorageType: device.storageType || undefined,
+        laptopGpuType: device.gpuKey || undefined,
+        laptopYearApprox: device.yearApprox || undefined,
       }
     })
 }

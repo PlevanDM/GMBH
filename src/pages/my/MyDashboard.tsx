@@ -1,8 +1,9 @@
 import { useMemo } from 'react'
 import { Link } from 'react-router-dom'
-import { IconSettings, IconActivity, IconUpload, IconFileText, IconUser } from '../../components/CabinetIcons'
+import { IconSettings, IconActivity, IconUpload, IconFileText, IconUser, IconCpu } from '../../components/CabinetIcons'
 import { useInventory } from '../../store/inventoryStore'
 import { useBuyer } from '../../store/buyerStore'
+import { estimatePrice, parseDeviceFromQuery } from '../../utils/priceEstimator'
 
 function formatDate(iso: string | null) {
   if (!iso) return '—'
@@ -28,6 +29,24 @@ export default function MyDashboard() {
     const totalCount = items.length
     const totalValue = available.reduce((s, i) => s + (i.price ?? 0) * (i.quantity ?? 1), 0)
 
+    // Calculate market valuation
+    let estimatedMarketRetail = 0
+    let estimatedBuyback = 0
+    let estimatedWholesale = 0
+
+    available.forEach(item => {
+      if (item.category?.toLowerCase().includes('laptop') || !item.category) {
+        const device = parseDeviceFromQuery(item.brand || '', item.description || '')
+        const retail = estimatePrice(device, 'retail').mid
+        const buyback = estimatePrice(device, 'buyback').mid
+        const wholesale = estimatePrice(device, 'wholesale').mid
+        const qty = item.quantity || 1
+        estimatedMarketRetail += retail * qty
+        estimatedBuyback += buyback * qty
+        estimatedWholesale += wholesale * qty
+      }
+    })
+
     const brands = new Set(available.map((i) => i.brand).filter(Boolean))
     const categories = new Set(available.map((i) => i.category).filter(Boolean))
 
@@ -45,6 +64,7 @@ export default function MyDashboard() {
     return {
       availableCount, totalCount, totalValue, brands: brands.size, categories: categories.size,
       rfqDraft, rfqSent, rfqReview, rfqQuoted, rfqApproved, rfqTotal, rfqPending, buyerUsers, activeBatches,
+      estimatedMarketRetail, estimatedBuyback, estimatedWholesale,
     }
   }, [available, items, rfqs, users, batches])
 
@@ -108,7 +128,7 @@ export default function MyDashboard() {
           accent
         />
         <KpiCard
-          label="Стоимость"
+          label="Сумма прайса"
           value={`€${formatCurrency(stats.totalValue)}`}
           sub={`${stats.brands} бренд. · ${stats.categories} кат.`}
           icon={
@@ -173,6 +193,44 @@ export default function MyDashboard() {
             <p className="text-xs text-amber-600 mt-0.5">Нажмите, чтобы перейти к управлению запросами</p>
           </div>
         </Link>
+      )}
+
+      {/* Smart Valuation Section */}
+      {stats.availableCount > 0 && (
+        <div className="mt-6 rounded-xl border border-neutral-200 bg-white overflow-hidden shadow-sm">
+          <div className="bg-neutral-50 px-5 py-3 border-b border-neutral-200 flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-neutral-700 flex items-center gap-2">
+              <IconCpu className="w-4 h-4 text-accent" />
+              Оценка складских остатков (Laptops)
+            </h3>
+            <span className="text-[10px] text-neutral-400 font-medium uppercase tracking-wider">Smart Engine v2</span>
+          </div>
+          <div className="p-5 grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="space-y-1">
+              <p className="text-xs text-neutral-500 uppercase font-medium tracking-wide">Рыночная (Retail)</p>
+              <p className="text-2xl font-bold text-primary">€{formatCurrency(stats.estimatedMarketRetail)}</p>
+              <p className="text-[11px] text-neutral-400">Средняя цена на полке в ЕС</p>
+            </div>
+            <div className="space-y-1">
+              <p className="text-xs text-neutral-500 uppercase font-medium tracking-wide">Опт (Wholesale)</p>
+              <p className="text-2xl font-bold text-accent">€{formatCurrency(stats.estimatedWholesale)}</p>
+              <p className="text-[11px] text-neutral-400">Ожидаемая выручка при быстрой продаже</p>
+            </div>
+            <div className="space-y-1">
+              <p className="text-xs text-neutral-500 uppercase font-medium tracking-wide">Закуп (Buyback)</p>
+              <p className="text-2xl font-bold text-emerald-600">€{formatCurrency(stats.estimatedBuyback)}</p>
+              <p className="text-[11px] text-neutral-400">Рекомендуемый порог входа</p>
+            </div>
+          </div>
+          <div className="px-5 py-3 bg-accent/5 border-t border-accent/10 flex items-center justify-between">
+            <p className="text-xs text-accent-dark">
+              Инструмент оценки анализирует ваш прайс в реальном времени.
+            </p>
+            <Link to="/my/laptops" className="text-xs font-semibold text-accent hover:underline">
+              Детальный скаут &rarr;
+            </Link>
+          </div>
+        </div>
       )}
 
       {/* Charts: Brands + Categories + Condition side by side */}

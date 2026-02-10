@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react'
 import { useBuyer } from '../../store/buyerStore'
 import { IconFileText } from '../../components/CabinetIcons'
 import type { Rfq, RfqStatus } from '../../types/buyer'
+import { exportRfqToExcel } from '../../utils/exportRfq'
 
 const STATUS_LABELS: Record<RfqStatus, string> = {
   DRAFT: 'Черновик',
@@ -221,6 +222,13 @@ export default function MyRfqManagement() {
                           >
                             {isExpanded ? 'Свернуть' : 'Детали'}
                           </button>
+                          <button
+                            type="button"
+                            onClick={() => exportRfqToExcel(r)}
+                            className="rounded-lg px-2.5 py-1 text-xs font-medium text-neutral-500 hover:bg-neutral-100 transition-colors"
+                          >
+                            Excel
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -268,6 +276,13 @@ export default function MyRfqManagement() {
                     {a.label}
                   </button>
                 ))}
+                <button
+                  type="button"
+                  onClick={() => exportRfqToExcel(rfq)}
+                  className="rounded-lg border border-neutral-300 bg-white px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-50"
+                >
+                  Скачать Excel
+                </button>
               </div>
             </div>
 
