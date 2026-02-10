@@ -58,7 +58,9 @@ interface InventoryContextValue {
   replaceItems: (items: InventoryItem[]) => void
   addItems: (items: InventoryItem[]) => void
   updateItem: (id: string, patch: Partial<InventoryItem>) => void
+  updateItems: (ids: string[], patch: Partial<InventoryItem>) => void
   removeItem: (id: string) => void
+  removeItems: (ids: string[]) => void
   getAvailable: () => InventoryItem[]
   addBatch: (batch: Omit<InventoryBatch, 'id' | 'createdAt'>) => InventoryBatch
   updateBatch: (id: string, patch: Partial<InventoryBatch>) => void
@@ -110,10 +112,32 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
     })
   }, [])
 
+  const updateItems = useCallback((ids: string[], patch: Partial<InventoryItem>) => {
+    const now = new Date().toISOString()
+    const idSet = new Set(ids)
+    setState((prev) => {
+      const items = prev.items.map((it) =>
+        idSet.has(it.id) ? { ...it, ...patch, updatedAt: now } : it
+      )
+      saveToStorage(items, now)
+      return { ...prev, items, meta: { lastUpdated: now } }
+    })
+  }, [])
+
   const removeItem = useCallback((id: string) => {
     const now = new Date().toISOString()
     setState((prev) => {
       const items = prev.items.filter((it) => it.id !== id)
+      saveToStorage(items, now)
+      return { ...prev, items, meta: { lastUpdated: now } }
+    })
+  }, [])
+
+  const removeItems = useCallback((ids: string[]) => {
+    const now = new Date().toISOString()
+    const idSet = new Set(ids)
+    setState((prev) => {
+      const items = prev.items.filter((it) => !idSet.has(it.id))
       saveToStorage(items, now)
       return { ...prev, items, meta: { lastUpdated: now } }
     })
@@ -180,7 +204,9 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
       replaceItems,
       addItems,
       updateItem,
+      updateItems,
       removeItem,
+      removeItems,
       getAvailable,
       addBatch,
       updateBatch,

@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import type { ColumnMapping, InventoryBatch } from '../../types/inventory'
 import { DEFAULT_MAPPING } from '../../types/inventory'
 import { useInventory } from '../../store/inventoryStore'
-import { IconUpload } from '../../components/CabinetIcons'
+import { IconUpload, IconFileText } from '../../components/CabinetIcons'
 import {
   parseInventoryFile,
   parseInventoryFromGoogleSheetsUrl,
@@ -15,6 +15,8 @@ import {
 } from '../../utils/parseInventoryFile'
 import type { InventoryStatus } from '../../types/inventory'
 import { uploadInventoryFile, fetchGoogleSheetsCsv } from '../../api/myApi'
+import { exportInventoryToExcel } from '../../utils/exportInventory'
+import { estimatePrice, parseDeviceFromQuery } from '../../utils/priceEstimator'
 import {
   getCategories,
   getBrands,
@@ -43,7 +45,9 @@ export default function MyInventory() {
     lastUpdated,
     addItems,
     updateItem,
+    updateItems,
     removeItem,
+    removeItems,
     addBatch,
     removeBatch,
     getBatchById,
@@ -56,6 +60,8 @@ export default function MyInventory() {
   const [error, setError] = useState<string | null>(null)
   const [importing, setImporting] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [bulkPriceChange, setBulkPriceChange] = useState<string>('')
 
   const [importBatchMode, setImportBatchMode] = useState<'existing' | 'new'>('new')
   const [importBatchId, setImportBatchId] = useState<string>('')
@@ -68,6 +74,7 @@ export default function MyInventory() {
   const [filterBatchId, setFilterBatchId] = useState<string>('')
   const [filterCountry, setFilterCountry] = useState<string>('')
   const [filterSupplier, setFilterSupplier] = useState('')
+  const [filterIssue, setFilterIssue] = useState<'none' | 'no-price' | 'no-specs'>('none')
   const [apiFile, setApiFile] = useState<File | null>(null)
   const [apiStatus, setApiStatus] = useState<'idle' | 'uploading' | 'done' | 'error'>('idle')
   const [showClearConfirm, setShowClearConfirm] = useState(false)
@@ -192,9 +199,18 @@ export default function MyInventory() {
       if (filterCountry && batch?.country !== filterCountry) return false
       if (filterSupplier.trim() && !batch?.supplier?.toLowerCase().includes(filterSupplier.trim().toLowerCase()))
         return false
+
+      if (filterIssue === 'no-price') {
+        if (it.price && it.price > 0) return false
+      }
+      if (filterIssue === 'no-specs') {
+        const isLaptop = it.category?.toLowerCase().includes('laptop') || !it.category
+        if (!isLaptop || (it.processor && it.ram_raw && it.storage_raw)) return false
+      }
+
       return true
     })
-  }, [items, filterBatchId, filterCountry, filterSupplier, getBatchById])
+  }, [items, filterBatchId, filterCountry, filterSupplier, filterIssue, getBatchById])
 
   const uniqueCountries = useMemo(
     () => Array.from(new Set(batches.map((b) => b.country).filter(Boolean))).sort(),
@@ -212,6 +228,39 @@ export default function MyInventory() {
   const conditionOptions = getConditionGrades()
   const brandOptions = getBrands()
   const processorOptions = getProcessors()
+
+  const inventoryStats = useMemo(() => {
+    let totalItems = 0
+    let totalQuantity = 0
+    let missingPrices = 0
+    let missingSpecs = 0
+    let totalPriceValue = 0
+    let totalMarketWholesale = 0
+
+    items.forEach(it => {
+      totalItems++
+      const qty = it.quantity || 1
+      totalQuantity += qty
+
+      if (!it.price || it.price <= 0) missingPrices++
+
+      const isLaptop = it.category?.toLowerCase().includes('laptop') || !it.category
+      if (isLaptop && (!it.processor || !it.ram_raw || !it.storage_raw)) {
+        missingSpecs++
+      }
+
+      totalPriceValue += (it.price || 0) * qty
+
+      if (isLaptop) {
+        const device = parseDeviceFromQuery(it.brand || '', it.description || '')
+        const wholesale = estimatePrice(device, 'wholesale').mid
+        totalMarketWholesale += wholesale * qty
+      }
+    })
+
+    return { totalItems, totalQuantity, missingPrices, missingSpecs, totalPriceValue, totalMarketWholesale }
+  }, [items])
+
   const locationOptions = getLocations()
   const yearOptions = getYears()
 
@@ -226,9 +275,123 @@ export default function MyInventory() {
   const formatDateShort = (dateStr: string) =>
     new Date(dateStr).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' })
 
+  const toggleSelectAll = () => {
+    if (selectedIds.size === filteredItems.length && filteredItems.length > 0) {
+      setSelectedIds(new Set())
+    } else {
+      setSelectedIds(new Set(filteredItems.map(it => it.id)))
+    }
+  }
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const handleBulkStatusChange = (status: InventoryStatus) => {
+    updateItems(Array.from(selectedIds), { status })
+    setSelectedIds(new Set())
+  }
+
+  const handleBulkPriceAdjust = () => {
+    const pct = parseFloat(bulkPriceChange)
+    if (Number.isNaN(pct)) return
+
+    // We need to apply this per-item because prices are different
+    Array.from(selectedIds).forEach(id => {
+      const it = items.find(x => x.id === id)
+      if (it && it.price) {
+        const newPrice = Math.round(it.price * (1 + pct / 100) * 100) / 100
+        updateItem(id, { price: newPrice })
+      }
+    })
+    setBulkPriceChange('')
+    setSelectedIds(new Set())
+  }
+
+  const handleBulkDelete = () => {
+    if (!window.confirm(`Удалить выбранные позиции (${selectedIds.size} шт.)?`)) return
+    removeItems(Array.from(selectedIds))
+    setSelectedIds(new Set())
+  }
+
+  const handleBulkBatchChange = (batchId: string) => {
+    const finalBatchId = batchId === 'none' ? undefined : batchId
+    updateItems(Array.from(selectedIds), { batchId: finalBatchId })
+    setSelectedIds(new Set())
+  }
+
+  const handleExport = () => {
+    const toExport = selectedIds.size > 0
+      ? items.filter(it => selectedIds.has(it.id))
+      : filteredItems
+
+    exportInventoryToExcel(toExport, batches, `inventory_export_${new Date().toISOString().slice(0, 10)}.xlsx`)
+  }
+
+  const handleBulkMarketSync = () => {
+    if (!window.confirm(`Установить рыночные оптовые цены для выбранных позиций (${selectedIds.size} шт.)?`)) return
+
+    Array.from(selectedIds).forEach(id => {
+      const it = items.find(x => x.id === id)
+      if (it) {
+        const device = parseDeviceFromQuery(it.brand || '', it.description || '')
+        const wholesale = estimatePrice(device, 'wholesale').mid
+        if (wholesale > 0) {
+          updateItem(id, { price: wholesale })
+        }
+      }
+    })
+    setSelectedIds(new Set())
+  }
+
   return (
     <>
       <h2 className="text-lg font-semibold text-primary">Обновление прайса и остатков</h2>
+
+      {items.length > 0 && (
+        <div className="mt-6 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
+          <button
+            onClick={() => setFilterIssue('none')}
+            className={`text-left rounded-xl border p-4 shadow-sm transition-all ${filterIssue === 'none' ? 'border-primary ring-1 ring-primary/20 bg-white' : 'border-neutral-200 bg-neutral-50/50 opacity-80'}`}
+          >
+            <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider">Всего позиций</p>
+            <p className="mt-1 text-2xl font-bold text-primary">{inventoryStats.totalItems}</p>
+            <p className="text-xs text-neutral-500">{inventoryStats.totalQuantity} ед. товара</p>
+          </button>
+          <button
+            onClick={() => setFilterIssue('no-price')}
+            className={`text-left rounded-xl border p-4 shadow-sm transition-all ${filterIssue === 'no-price' ? 'border-amber-400 ring-1 ring-amber-400/20 bg-white' : inventoryStats.missingPrices > 0 ? 'border-amber-200 bg-amber-50' : 'border-neutral-200 bg-neutral-50/50 opacity-80'}`}
+          >
+            <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider">Без цены</p>
+            <p className={`mt-1 text-2xl font-bold ${inventoryStats.missingPrices > 0 ? 'text-amber-700' : 'text-primary'}`}>{inventoryStats.missingPrices}</p>
+            <p className="text-xs text-neutral-500">требуют оценки</p>
+          </button>
+          <button
+            onClick={() => setFilterIssue('no-specs')}
+            className={`text-left rounded-xl border p-4 shadow-sm transition-all ${filterIssue === 'no-specs' ? 'border-blue-400 ring-1 ring-blue-400/20 bg-white' : inventoryStats.missingSpecs > 0 ? 'border-blue-200 bg-blue-50' : 'border-neutral-200 bg-neutral-50/50 opacity-80'}`}
+          >
+            <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider">Без хар-к</p>
+            <p className={`mt-1 text-2xl font-bold ${inventoryStats.missingSpecs > 0 ? 'text-blue-700' : 'text-primary'}`}>{inventoryStats.missingSpecs}</p>
+            <p className="text-xs text-neutral-500">пропуски в CPU/RAM</p>
+          </button>
+          <div className="rounded-xl border border-neutral-200 bg-white p-4 shadow-sm">
+            <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider">Сумма прайса</p>
+            <p className="mt-1 text-2xl font-bold text-primary">€{inventoryStats.totalPriceValue.toLocaleString('ru-RU')}</p>
+            <p className="text-xs text-neutral-500">текущая оценка</p>
+          </div>
+          <div className="rounded-xl border border-emerald-200 bg-emerald-50/50 p-4 shadow-sm">
+            <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider">Рыночный опт</p>
+            <p className="mt-1 text-2xl font-bold text-emerald-700">€{inventoryStats.totalMarketWholesale.toLocaleString('ru-RU')}</p>
+            <p className="text-xs text-emerald-600">оценка Smart Engine</p>
+          </div>
+        </div>
+      )}
+
       <p className="mt-2 text-neutral-600 leading-relaxed">
         Загрузка прайсов в любом формате: Excel (xlsx, xls) или CSV. Колонки (цена, инв. номер, описание, статус и т.д.) определяются по шапке файла автоматически — поддерживаются разные названия на EN, RU, DE, PL и др. При необходимости маппинг можно поправить вручную. Данные сохраняются в браузере и отображаются на{' '}
         <Link to="/marketplace/stock" className="text-accent hover:underline">витрине</Link> и в{' '}
@@ -241,6 +404,14 @@ export default function MyInventory() {
       )}
 
       <div className="mt-4 flex flex-wrap items-center gap-3">
+        <button
+          onClick={handleExport}
+          className="rounded-lg border border-accent bg-white px-4 py-2 text-sm font-medium text-accent hover:bg-accent/5 flex items-center gap-2"
+        >
+          <IconFileText className="w-4 h-4" />
+          Экспортировать {selectedIds.size > 0 ? `выбранные (${selectedIds.size})` : 'весь список'}
+        </button>
+
         <button
           type="button"
           onClick={() => setShowClearConfirm(true)}
@@ -700,13 +871,14 @@ export default function MyInventory() {
               placeholder="Поставщик"
               className="rounded-lg border border-neutral-300 px-2 py-1.5 text-sm w-40"
             />
-            {(filterBatchId || filterCountry || filterSupplier.trim()) && (
+            {(filterBatchId || filterCountry || filterSupplier.trim() || filterIssue !== 'none') && (
               <button
                 type="button"
                 onClick={() => {
                   setFilterBatchId('')
                   setFilterCountry('')
                   setFilterSupplier('')
+                  setFilterIssue('none')
                 }}
                 className="text-sm text-neutral-500 hover:text-primary"
               >
@@ -753,10 +925,91 @@ export default function MyInventory() {
               <option key={y} value={y} />
             ))}
           </datalist>
+          {selectedIds.size > 0 && (
+            <div className="sticky top-0 z-20 mt-4 rounded-xl border border-accent/30 bg-accent/5 p-4 shadow-sm flex flex-wrap items-center justify-between gap-4 backdrop-blur-sm">
+              <div className="flex items-center gap-3">
+                <span className="text-sm font-semibold text-accent">Выбрано: {selectedIds.size}</span>
+                <button
+                  onClick={() => setSelectedIds(new Set())}
+                  className="text-xs text-neutral-500 hover:text-primary underline"
+                >
+                  Сбросить
+                </button>
+              </div>
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="flex items-center gap-2 border-r border-neutral-200 pr-3 mr-1">
+                  <select
+                    onChange={(e) => handleBulkStatusChange(e.target.value as InventoryStatus)}
+                    className="rounded border border-neutral-300 px-2 py-1.5 text-xs bg-white"
+                    defaultValue=""
+                  >
+                    <option value="" disabled>Сменить статус...</option>
+                    <option value="available">В наличии</option>
+                    <option value="sold">Продано</option>
+                    <option value="reserved">Зарезервировано</option>
+                  </select>
+                </div>
+
+                <div className="flex items-center gap-2 border-r border-neutral-200 pr-3 mr-1">
+                  <select
+                    onChange={(e) => handleBulkBatchChange(e.target.value)}
+                    className="rounded border border-neutral-300 px-2 py-1.5 text-xs bg-white max-w-[150px]"
+                    defaultValue=""
+                  >
+                    <option value="" disabled>Сменить партию...</option>
+                    <option value="none">— Без партии</option>
+                    {batches.map(b => (
+                      <option key={b.id} value={b.id}>{b.country} {b.supplier}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="flex items-center gap-2 border-r border-neutral-200 pr-3 mr-1">
+                  <input
+                    type="number"
+                    placeholder="±%"
+                    value={bulkPriceChange}
+                    onChange={(e) => setBulkPriceChange(e.target.value)}
+                    className="w-16 rounded border border-neutral-300 px-2 py-1.5 text-xs bg-white"
+                  />
+                  <button
+                    onClick={handleBulkPriceAdjust}
+                    disabled={!bulkPriceChange}
+                    className="rounded bg-accent px-3 py-1.5 text-xs font-medium text-white hover:bg-accent-hover disabled:opacity-50"
+                  >
+                    Изм. цену
+                  </button>
+                </div>
+
+                <button
+                  onClick={handleBulkMarketSync}
+                  className="rounded bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700"
+                >
+                  Sync with Market
+                </button>
+
+                <button
+                  onClick={handleBulkDelete}
+                  className="rounded border border-red-300 bg-white px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-50"
+                >
+                  Удалить выбранные
+                </button>
+              </div>
+            </div>
+          )}
+
           <div className="mt-4 overflow-x-auto rounded-xl border border-neutral-200">
-            <table className="w-full min-w-[1500px] text-left text-sm">
+            <table className="w-full min-w-[1550px] text-left text-sm">
               <thead>
                 <tr className="border-b border-neutral-200 bg-neutral-50">
+                  <th className="px-3 py-2 w-10">
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.size === filteredItems.length && filteredItems.length > 0}
+                      onChange={toggleSelectAll}
+                      className="rounded border-neutral-400"
+                    />
+                  </th>
                   <th className="px-3 py-2 font-semibold text-neutral-700">Описание</th>
                   <th className="px-3 py-2 font-semibold text-neutral-700">Бренд</th>
                   <th className="px-3 py-2 font-semibold text-neutral-700">Категория</th>
@@ -775,6 +1028,7 @@ export default function MyInventory() {
                   <th className="px-3 py-2 font-semibold text-neutral-700">Циклы АКБ</th>
                   <th className="px-3 py-2 font-semibold text-neutral-700">АКБ</th>
                   <th className="px-3 py-2 font-semibold text-neutral-700">Цена</th>
+                  <th className="px-3 py-2 font-semibold text-neutral-700 text-[11px] text-emerald-700">Market Wholesale</th>
                   <th className="px-3 py-2 font-semibold text-neutral-700">Кол-во</th>
                   <th className="px-3 py-2 font-semibold text-neutral-700">Партия</th>
                   <th className="px-3 py-2 font-semibold text-neutral-700">Локация</th>
@@ -785,7 +1039,15 @@ export default function MyInventory() {
               </thead>
               <tbody>
                 {filteredItems.map((it) => (
-                    <tr key={it.id} className="border-b border-neutral-100 last:border-0 hover:bg-neutral-50/50">
+                    <tr key={it.id} className={`border-b border-neutral-100 last:border-0 hover:bg-neutral-50/50 ${selectedIds.has(it.id) ? 'bg-accent/5' : ''}`}>
+                      <td className="px-3 py-2">
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.has(it.id)}
+                          onChange={() => toggleSelect(it.id)}
+                          className="rounded border-neutral-400"
+                        />
+                      </td>
                       <td className="max-w-[180px] truncate px-3 py-2 text-neutral-700" title={it.description}>
                         {editingId === it.id ? (
                           <input
@@ -954,8 +1216,30 @@ export default function MyInventory() {
                             updateItem(it.id, { price: n != null && !Number.isNaN(n) ? n : undefined })
                           }}
                           placeholder="—"
-                          className="w-full min-w-[70px] max-w-[90px] rounded border border-neutral-300 px-2 py-1 text-xs"
+                          className={`w-full min-w-[70px] max-w-[90px] rounded border px-2 py-1 text-xs ${
+                            it.price && it.category?.toLowerCase().includes('laptop')
+                              ? (() => {
+                                  const device = parseDeviceFromQuery(it.brand || '', it.description || '')
+                                  const wholesale = estimatePrice(device, 'wholesale').mid
+                                  if (wholesale > 0) {
+                                    const diff = (it.price - wholesale) / wholesale
+                                    if (Math.abs(diff) > 0.15) return 'border-red-300 bg-red-50'
+                                    if (Math.abs(diff) > 0.08) return 'border-amber-300 bg-amber-50'
+                                  }
+                                  return 'border-neutral-300'
+                                })()
+                              : 'border-neutral-300'
+                          }`}
                         />
+                      </td>
+                      <td className="px-3 py-2 text-xs font-medium text-emerald-700">
+                        {it.category?.toLowerCase().includes('laptop') || !it.category ? (
+                          (() => {
+                            const device = parseDeviceFromQuery(it.brand || '', it.description || '')
+                            const wholesale = estimatePrice(device, 'wholesale').mid
+                            return wholesale > 0 ? `€${wholesale}` : '—'
+                          })()
+                        ) : '—'}
                       </td>
                       <td className="px-3 py-2">
                         <input
