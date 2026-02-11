@@ -291,6 +291,11 @@ export const buyerPortalLocales = {
       navLabel: "Cabinet sections",
       logout: "Log out",
     },
+    notFound: {
+      title: "Page Not Found",
+      subtitle: "The page you are looking for does not exist.",
+      back: "To Home",
+    },
     publicStock: {
       title: "B2B Stock — Equipment Available",
       subtitle: "{{count}} positions in stock",
@@ -581,6 +586,11 @@ export const buyerPortalLocales = {
       langLabel: "Limbă",
       navLabel: "Secțiuni cabinet",
       logout: "Deconectare",
+    },
+    notFound: {
+      title: "Pagina nu a fost găsită",
+      subtitle: "Pagina pe care o căutați nu există.",
+      back: "La prima pagină",
     },
     publicStock: {
       title: "Stoc B2B — Echipamente disponibile",
@@ -873,6 +883,11 @@ export const buyerPortalLocales = {
       navLabel: "Secciones del panel",
       logout: "Cerrar sesión",
     },
+    notFound: {
+      title: "Página no encontrada",
+      subtitle: "La página que busca no existe.",
+      back: "A Inicio",
+    },
     publicStock: {
       title: "Stock B2B — Equipamiento disponible",
       subtitle: "{{count}} posiciones en stock",
@@ -1163,6 +1178,11 @@ export const buyerPortalLocales = {
       langLabel: "Sprache",
       navLabel: "Bereiche",
       logout: "Abmelden",
+    },
+    notFound: {
+      title: "Seite nicht gefunden",
+      subtitle: "Die gesuchte Seite existiert nicht.",
+      back: "Zur Startseite",
     },
     publicStock: {
       title: "B2B Bestand — Verfügbare Ausrüstung",
@@ -1460,6 +1480,11 @@ export const buyerPortalLocales = {
       navLabel: "Sekcje panelu",
       logout: "Wyloguj się",
     },
+    notFound: {
+      title: "Strona nie znaleziona",
+      subtitle: "Strona, której szukasz, nie istnieje.",
+      back: "Strona główna",
+    },
     publicStock: {
       title: "Magazyn B2B — Dostępny sprzęt",
       subtitle: "{{count}} pozycji na stanie",
@@ -1751,6 +1776,11 @@ export const buyerPortalLocales = {
       navLabel: "Розділи кабінету",
       logout: "Вийти",
     },
+    notFound: {
+      title: "Сторінка не знайдена",
+      subtitle: "Сторінки, яку ви шукаєте, не існує.",
+      back: "На головну",
+    },
     publicStock: {
       title: "Вітрина B2B — Наявність обладнання",
       subtitle: "{{count}} позицій в наявності",
@@ -2041,6 +2071,11 @@ export const buyerPortalLocales = {
       langLabel: "Язык",
       navLabel: "Разделы кабинета",
       logout: "Выйти",
+    },
+    notFound: {
+      title: "Страница не найдена",
+      subtitle: "Страница, которую вы ищете, не существует.",
+      back: "На главную",
     },
     publicStock: {
       title: "Витрина B2B — Наличие оборудования",

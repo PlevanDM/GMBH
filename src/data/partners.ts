@@ -10,6 +10,8 @@ export interface Partner {
   url?: string
 }
 
+export const RESTART_LOGO = 'https://restartsp.com/wp-content/uploads/2024/05/logo_header.png'
+
 export const PARTNERS: Partner[] = [
   {
     name: 'EPAM',

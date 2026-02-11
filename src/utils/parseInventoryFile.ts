@@ -61,7 +61,7 @@ export async function parseInventoryFromGoogleSheetsUrl(
   fetchCsv: (exportUrl: string) => Promise<string>
 ): Promise<ParsedFile> {
   const exportUrl = getGoogleSheetsExportUrl(viewOrExportUrl)
-  if (!exportUrl) throw new Error('Некорректная ссылка на Google Таблицу')
+  if (!exportUrl) throw new Error('Invalid Google Sheets link')
   const csvText = await fetchCsv(exportUrl)
   const workbook = XLSX.read(csvText, { type: 'string', raw: false })
   const sheetNames = workbook.SheetNames.length ? workbook.SheetNames : ['Лист1']
@@ -261,14 +261,14 @@ const KNOWN_BRANDS = [
 ]
 
 const KNOWN_CATEGORIES: Record<string, string> = {
-  macbook: 'Ноутбук', laptop: 'Ноутбук', notebook: 'Ноутбук', ноутбук: 'Ноутбук',
-  desktop: 'Десктоп', pc: 'Десктоп', компьютер: 'Десктоп', 'all-in-one': 'Десктоп',
-  imac: 'Десктоп',
-  monitor: 'Монитор', display: 'Монитор', монитор: 'Монитор',
-  tablet: 'Планшет', ipad: 'Планшет', планшет: 'Планшет',
-  phone: 'Телефон', iphone: 'Телефон', smartphone: 'Телефон', телефон: 'Телефон',
-  server: 'Сервер', сервер: 'Сервер',
-  printer: 'Принтер', принтер: 'Принтер',
+  macbook: 'Laptop', laptop: 'Laptop', notebook: 'Laptop', ноутбук: 'Laptop',
+  desktop: 'Desktop', pc: 'Desktop', компьютер: 'Desktop', 'all-in-one': 'Desktop',
+  imac: 'Desktop',
+  monitor: 'Monitor', display: 'Monitor', монитор: 'Monitor',
+  tablet: 'Tablet', ipad: 'Tablet', планшет: 'Tablet',
+  phone: 'Phone', iphone: 'Phone', smartphone: 'Phone', телефон: 'Phone',
+  server: 'Server', сервер: 'Server',
+  printer: 'Printer', принтер: 'Printer',
 }
 
 /** Try to detect brand from description string */
@@ -330,7 +330,7 @@ export function mapRowsToItems(
       return vals.length > 0
     })
     .map((row, idx) => {
-      const desc = getCell(row, mapping.description) || `Позиция ${idx + 1}`
+      const desc = getCell(row, mapping.description) || `Item ${idx + 1}`
       const statusVal = mapping.status ? getCell(row, mapping.status) : ''
       const priceVal = mapping.price ? getCell(row, mapping.price) : ''
       const qtyVal = mapping.quantity ? getCell(row, mapping.quantity) : ''
@@ -424,22 +424,22 @@ export function analyzeMappingQuality(mapping: ColumnMapping, headers: string[])
   const unmappedHeaders = headers.filter((h) => !mappedHeaders.has(h))
 
   const suggestions: string[] = []
-  if (!mapping.description) suggestions.push('Не определена колонка описания — укажите вручную')
-  if (!mapping.price) suggestions.push('Не определена колонка цены — возможно формат нестандартный')
-  if (!mapping.brand && !mapping.description) suggestions.push('Нет бренда — он будет определён автоматически из описания')
-  if (!mapping.serialNumber) suggestions.push('Нет серийного номера — если есть, укажите вручную')
-  if (unmappedHeaders.length > 3) suggestions.push(`${unmappedHeaders.length} колонок не распознаны — данные сохранятся в комментариях`)
+  if (!mapping.description) suggestions.push('Description column not found - please map manually')
+  if (!mapping.price) suggestions.push('Price column not found - check format')
+  if (!mapping.brand && !mapping.description) suggestions.push('Brand missing - will try to auto-detect')
+  if (!mapping.serialNumber) suggestions.push('S/N missing - please map if available')
+  if (unmappedHeaders.length > 3) suggestions.push(`${unmappedHeaders.length} columns unrecognized - saved in notes`)
 
   // Detect type
-  let detectedType = 'Стандартный прайс'
+  let detectedType = 'Standard Price List'
   const hasSerial = !!mapping.serialNumber
   const hasBattery = !!mapping.batteryCycles || !!mapping.batteryHealth
   const hasProcessor = !!mapping.processor
   const hasCondition = !!mapping.condition
-  if (hasSerial && hasBattery && hasProcessor) detectedType = 'Детальный сток ноутбуков (with S/N, Battery, CPU)'
-  else if (hasSerial && hasCondition) detectedType = 'Сток б/у техники (with S/N, Grade)'
-  else if (mapping.quantity && mapping.price && !hasSerial) detectedType = 'Оптовый прайс-лист (bulk pricing)'
-  else if (mapping.sku && mapping.price) detectedType = 'Каталожный прайс (SKU + Price)'
+  if (hasSerial && hasBattery && hasProcessor) detectedType = 'Detailed Laptop Stock (S/N, Battery, CPU)'
+  else if (hasSerial && hasCondition) detectedType = 'Used Equipment Stock (S/N, Grade)'
+  else if (mapping.quantity && mapping.price && !hasSerial) detectedType = 'Wholesale Price List (bulk)'
+  else if (mapping.sku && mapping.price) detectedType = 'Catalog Price (SKU + Price)'
 
   const confidence = Math.min(100, Math.round((mapped.length / Math.max(headers.length, 1)) * 100))
 

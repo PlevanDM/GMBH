@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react'
 import { IconSettings } from '../../components/CabinetIcons'
 import { useSellerLocale } from '../../i18n/SellerLocaleContext'
 import { storageAdapter } from '../../api/storageAdapter'
+import ConfirmDialog from '../../components/ConfirmDialog'
 
 type MyProfileData = {
   companyName: string
@@ -33,6 +34,7 @@ export default function MySettings() {
   const [profile, setProfile] = useState<MyProfileData>(() => storageAdapter.getItem(PROFILE_KEY, defaultProfile))
   const [notifications, setNotifications] = useState<MyNotificationsData>(() => storageAdapter.getItem(NOTIF_KEY, defaultNotifications))
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saved'>('idle')
+  const [showClearConfirm, setShowClearConfirm] = useState(false)
 
   const showSaved = useCallback(() => {
     setSaveStatus('saved')
@@ -50,7 +52,6 @@ export default function MySettings() {
   }
 
   const handleClearData = () => {
-    if (!window.confirm(t.settings.clearConfirm)) return
     const keysToRemove = [
       'restart-inventory', 'restart-inventory-meta', 'restart-inventory-batches',
       'restart-my-profile', 'restart-my-notifications', 'restart-my-buyer-users',
@@ -159,10 +160,19 @@ export default function MySettings() {
       <section className="mt-6 rounded-xl border border-red-200 bg-red-50/50 p-6">
         <h3 className="text-base font-semibold text-red-700">{t.settings.dangerZone}</h3>
         <p className="mt-1 text-sm text-neutral-600">{t.settings.dangerDesc}</p>
-        <button type="button" onClick={handleClearData} className="mt-4 rounded-lg border border-red-300 bg-white px-4 py-2.5 text-sm font-medium text-red-700 hover:bg-red-50">
+        <button type="button" onClick={() => setShowClearConfirm(true)} className="mt-4 rounded-lg border border-red-300 bg-white px-4 py-2.5 text-sm font-medium text-red-700 hover:bg-red-50">
           {t.settings.clearData}
         </button>
       </section>
+
+      <ConfirmDialog
+        isOpen={showClearConfirm}
+        title={t.settings.clearData}
+        message={t.settings.clearConfirm}
+        onConfirm={handleClearData}
+        onCancel={() => setShowClearConfirm(false)}
+        isDestructive
+      />
     </>
   )
 }

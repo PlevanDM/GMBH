@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useBuyer } from '../../store/buyerStore'
 import { useBuyerLocale } from '../../i18n/BuyerLocaleContext'
 import type { RfqStatus } from '../../types/buyer'
+import ConfirmDialog from '../../components/ConfirmDialog'
 
 const RFQ_STATUS_STYLES: Record<RfqStatus, string> = {
   DRAFT: 'bg-neutral-100 text-neutral-700',
@@ -32,6 +33,20 @@ export default function BuyerRequestCard() {
   const [newMessage, setNewMessage] = useState('')
   const [showHistory, setShowHistory] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [confirmState, setConfirmState] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: () => {},
+  })
+
+  const closeConfirm = () => setConfirmState(prev => ({ ...prev, isOpen: false }))
+
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -69,26 +84,54 @@ export default function BuyerRequestCard() {
 
   const handleSend = () => {
     if (!canSend) return
-    if (!window.confirm(t.rfqDetail.confirmSend)) return
-    buyer.sendRfq(id)
+    setConfirmState({
+      isOpen: true,
+      title: t.rfqDetail.actions.send,
+      message: t.rfqDetail.confirmSend,
+      onConfirm: () => {
+        buyer.sendRfq(id)
+        closeConfirm()
+      }
+    })
   }
 
   const handleApprove = () => {
     if (!canApproveReject) return
-    if (!window.confirm(t.rfqDetail.confirmApprove)) return
-    buyer.approveRfq(id)
+    setConfirmState({
+      isOpen: true,
+      title: t.rfqDetail.actions.approve,
+      message: t.rfqDetail.confirmApprove,
+      onConfirm: () => {
+        buyer.approveRfq(id)
+        closeConfirm()
+      }
+    })
   }
 
   const handleReject = () => {
     if (!canApproveReject) return
-    if (!window.confirm(t.rfqDetail.confirmReject)) return
-    buyer.rejectRfq(id)
+    setConfirmState({
+      isOpen: true,
+      title: t.rfqDetail.actions.reject,
+      message: t.rfqDetail.confirmReject,
+      onConfirm: () => {
+        buyer.rejectRfq(id)
+        closeConfirm()
+      }
+    })
   }
 
   const handleCancel = () => {
     if (!canCancel) return
-    if (!window.confirm(t.rfqDetail.confirmCancel)) return
-    buyer.cancelRfq(id)
+    setConfirmState({
+      isOpen: true,
+      title: t.rfqDetail.actions.cancel,
+      message: t.rfqDetail.confirmCancel,
+      onConfirm: () => {
+        buyer.cancelRfq(id)
+        closeConfirm()
+      }
+    })
   }
 
   const handleDelete = () => {
@@ -367,6 +410,14 @@ export default function BuyerRequestCard() {
           <button type="button" onClick={sendMessage} className="btn-primary text-sm py-2 px-4">{t.chat.send}</button>
         </div>
       </div>
+
+      <ConfirmDialog
+        isOpen={confirmState.isOpen}
+        title={confirmState.title}
+        message={confirmState.message}
+        onConfirm={confirmState.onConfirm}
+        onCancel={closeConfirm}
+      />
     </>
   )
 }

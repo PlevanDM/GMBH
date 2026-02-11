@@ -6,6 +6,7 @@ export function exportInventoryToExcel(
   batches: InventoryBatch[],
   filename = 'inventory_export.xlsx'
 ) {
+  try {
   const data = items.map((it) => {
     const batch = it.batchId ? batches.find((b) => b.id === it.batchId) : undefined
 
@@ -63,4 +64,8 @@ export function exportInventoryToExcel(
   worksheet['!cols'] = wscols
 
   XLSX.writeFile(workbook, filename)
+  } catch (err) {
+    console.error('Failed to export inventory:', err)
+    alert('Failed to export inventory.')
+  }
 }

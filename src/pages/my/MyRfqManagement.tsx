@@ -4,6 +4,7 @@ import { IconFileText } from '../../components/CabinetIcons'
 import type { Rfq, RfqStatus } from '../../types/buyer'
 import { exportRfqToExcel } from '../../utils/exportRfq'
 import { useSellerLocale } from '../../i18n/SellerLocaleContext'
+import ConfirmDialog from '../../components/ConfirmDialog'
 
 const STATUS_STYLES: Record<RfqStatus, string> = {
   DRAFT: 'bg-neutral-100 text-neutral-700',
@@ -56,6 +57,20 @@ export default function MyRfqManagement() {
   const [page, setPage] = useState(0)
   const [actionFeedback, setActionFeedback] = useState<string | null>(null)
 
+  const [confirmState, setConfirmState] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: () => {},
+  })
+
+  const closeConfirm = () => setConfirmState(prev => ({ ...prev, isOpen: false }))
+
   const filtered = useMemo(() => {
     let list = rfqs
     if (statusFilter !== 'all') list = list.filter((r) => r.status === statusFilter)
@@ -82,25 +97,30 @@ export default function MyRfqManagement() {
   }, [rfqs])
 
   const handleAction = (rfq: Rfq, action: string) => {
-    const confirmMsg = t.rfq.actions.confirm.replace('{{title}}', rfq.title)
-    if (!window.confirm(confirmMsg)) return
-
-    switch (action) {
-      case 'review':
-        buyer.reviewRfq(rfq.id)
-        break
-      case 'quote':
-        buyer.quoteRfq(rfq.id)
-        break
-      case 'close':
-        buyer.closeRfq(rfq.id)
-        break
-      case 'cancel':
-        buyer.cancelRfq(rfq.id)
-        break
-    }
-    setActionFeedback(t.rfq.actions.feedback.replace('{{title}}', rfq.title))
-    setTimeout(() => setActionFeedback(null), 3000)
+    setConfirmState({
+      isOpen: true,
+      title: t.rfq.actions.confirm.replace('{{title}}', rfq.title),
+      message: `${t.rfq.table.request}: ${rfq.title}. ${t.rfq.table.status}: ${t.rfq.statuses[rfq.status]}`,
+      onConfirm: () => {
+        switch (action) {
+          case 'review':
+            buyer.reviewRfq(rfq.id)
+            break
+          case 'quote':
+            buyer.quoteRfq(rfq.id)
+            break
+          case 'close':
+            buyer.closeRfq(rfq.id)
+            break
+          case 'cancel':
+            buyer.cancelRfq(rfq.id)
+            break
+        }
+        setActionFeedback(t.rfq.actions.feedback.replace('{{title}}', rfq.title))
+        setTimeout(() => setActionFeedback(null), 3000)
+        closeConfirm()
+      }
+    })
   }
 
   return (
@@ -177,11 +197,11 @@ export default function MyRfqManagement() {
                 </tr>
               </thead>
               <tbody>
-                {paginated.map((r, idx) => {
+                {paginated.map((r) => {
                   const actions = getSellerActions(r.status)
                   const isExpanded = expandedId === r.id
                   return (
-                    <tr key={r.id} className={`border-b border-neutral-100 last:border-0 ${idx % 2 === 1 ? 'bg-neutral-50/50' : ''}`}>
+                    <tr key={r.id} className="border-b border-neutral-100 last:border-0 even:bg-neutral-50/50">
                       <td className="px-4 py-3">
                         <button type="button" onClick={() => setExpandedId(isExpanded ? null : r.id)} className="text-left group">
                           <span className="font-medium text-neutral-800 group-hover:text-accent transition-colors">{r.title}</span>
@@ -221,7 +241,7 @@ export default function MyRfqManagement() {
                             onClick={() => exportRfqToExcel(r)}
                             className="rounded-lg px-2.5 py-1 text-xs font-medium text-neutral-500 hover:bg-neutral-100 transition-colors"
                           >
-                            Excel
+                            {t.common.excel}
                           </button>
                         </div>
                       </td>
@@ -313,7 +333,9 @@ export default function MyRfqManagement() {
                         <tr key={item.id} className={`border-b border-neutral-100 last:border-0 ${i % 2 === 1 ? 'bg-neutral-50/50' : ''}`}>
                           <td className="px-3 py-2 text-neutral-800">{item.description}</td>
                           <td className="px-3 py-2 text-neutral-700 text-center">{item.quantity}</td>
-                          <td className="px-3 py-2 text-neutral-700 text-right">{item.targetPrice != null ? `${item.targetPrice} ${item.currency}` : '—'}</td>
+                          <td className="px-3 py-2 text-neutral-700 text-right">
+                            {item.targetPrice != null ? item.targetPrice.toLocaleString(locale, { style: 'currency', currency: item.currency || 'EUR' }) : '—'}
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -359,6 +381,14 @@ export default function MyRfqManagement() {
           </div>
         )
       })()}
+
+      <ConfirmDialog
+        isOpen={confirmState.isOpen}
+        title={confirmState.title}
+        message={confirmState.message}
+        onConfirm={confirmState.onConfirm}
+        onCancel={closeConfirm}
+      />
     </>
   )
 }

@@ -394,14 +394,19 @@ export default function BuyerStock() {
             </label>
             {selectedIds.size > 0 && (
               <span className="text-xs sm:text-sm text-neutral-600">
-                {t.stock.selected}: <strong>{selectedIds.size}</strong> {t.stock.totalAmount} ~<strong>{selectedSum.toLocaleString(locale)} €</strong>
+                {t.stock.selected}: <strong>{selectedIds.size}</strong> {t.stock.totalAmount} ~<strong>{selectedSum.toLocaleString(locale, { style: 'currency', currency: 'EUR' })}</strong>
               </span>
             )}
           </div>
           <div className="flex items-center gap-2 sm:gap-3">
             {/* Hide view toggle on tablet/mobile — grid is forced */}
             {!isTabletOrMobile && <ViewToggle mode={viewMode} onChange={setViewModeAndSave} />}
-            <button type="button" disabled={selectedIds.size === 0} className="rounded-lg bg-accent px-3 sm:px-5 py-2 text-xs sm:text-sm font-medium text-white hover:bg-accent-hover disabled:opacity-50 disabled:cursor-not-allowed transition-colors whitespace-nowrap min-h-[40px]">
+            <button
+              type="button"
+              disabled={selectedIds.size === 0}
+              onClick={handleSubmitQuoteRequest}
+              className="rounded-lg bg-accent px-3 sm:px-5 py-2 text-xs sm:text-sm font-medium text-white hover:bg-accent-hover disabled:opacity-50 disabled:cursor-not-allowed transition-colors whitespace-nowrap min-h-[40px]"
+            >
               {t.stock.addToRequest}
             </button>
           </div>
@@ -418,7 +423,7 @@ export default function BuyerStock() {
           <div className="flex-1 overflow-y-auto px-5 py-4">
             <div className="rounded-lg bg-neutral-100 px-3 py-2.5 mb-4 text-sm text-neutral-700">
               <strong>{t.quotePanel.selected}: {selectedItems.length} {t.quotePanel.items}</strong>
-              {selectedSum > 0 && <span> {t.quotePanel.total} ~{selectedSum.toLocaleString(locale)} €</span>}
+              {selectedSum > 0 && <span> {t.quotePanel.total} ~{selectedSum.toLocaleString(locale, { style: 'currency', currency: 'EUR' })}</span>}
             </div>
             <ul className="list-none p-0 m-0 mb-5 space-y-2 text-[13px] border-b border-neutral-100 pb-4">
               {selectedItems.slice(0, 3).map((item) => (

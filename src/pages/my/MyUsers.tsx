@@ -1,6 +1,8 @@
-import { useState, useCallback, useMemo } from 'react'
+import React, { useState, useCallback, useMemo } from 'react'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { IconUser } from '../../components/CabinetIcons'
 import { useSellerLocale } from '../../i18n/SellerLocaleContext'
+import ConfirmDialog from '../../components/ConfirmDialog'
 
 type BuyerUser = {
   id: string
@@ -35,6 +37,20 @@ export default function MyUsers() {
   const [message, setMessage] = useState<{ type: 'ok' | 'error'; text: string } | null>(null)
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(0)
+
+  const [confirmState, setConfirmState] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: () => {},
+  })
+
+  const closeConfirm = () => setConfirmState(prev => ({ ...prev, isOpen: false }))
 
   const PAGE_SIZE = 10
   const filteredUsers = useMemo(() => {
@@ -96,9 +112,16 @@ export default function MyUsers() {
   }
 
   const handleDelete = (id: string) => {
-    if (!window.confirm(t.users.messages.deleteConfirm)) return
-    persist(users.filter((u) => u.id !== id))
-    setMessage({ type: 'ok', text: t.users.messages.deleted })
+    setConfirmState({
+      isOpen: true,
+      title: t.users.messages.deleteConfirm,
+      message: `${t.users.table.delete}: ${users.find(u => u.id === id)?.email}`,
+      onConfirm: () => {
+        persist(users.filter((u) => u.id !== id))
+        setMessage({ type: 'ok', text: t.users.messages.deleted })
+        closeConfirm()
+      }
+    })
   }
 
   return (
@@ -106,13 +129,13 @@ export default function MyUsers() {
       <h2 className="flex items-center gap-2 text-lg font-semibold text-primary">
         <IconUser className="shrink-0" /> {t.users.title}
       </h2>
-      <p className="mt-2 text-neutral-600 leading-relaxed"
-         dangerouslySetInnerHTML={{
-           __html: t.users.description
-             .replace('{{total}}', users.length.toString())
-             .replace('{{active}}', users.filter((u) => u.active).length.toString())
-         }}
-      />
+      <p className="mt-2 text-neutral-600 leading-relaxed">
+        {t.users.description.split(/<strong[^>]*>|<\/strong>/).map((part, i) => {
+          if (part === '{{total}}') return <strong key={i} className="font-semibold text-primary">{users.length}</strong>
+          if (part === '{{active}}') return <strong key={i} className="font-semibold text-primary">{users.filter(u => u.active).length}</strong>
+          return part
+        })}
+      </p>
 
       <div className="mt-6 flex flex-wrap items-center gap-3">
         <button type="button" onClick={() => { resetForm(); setShowForm((v) => !v) }} className="btn-primary rounded-lg px-4 py-2.5 text-sm">
@@ -203,14 +226,39 @@ export default function MyUsers() {
             </div>
             {totalPages > 1 && (
               <div className="mt-4 flex items-center justify-center gap-2">
-                <button type="button" onClick={() => setPage((p) => Math.max(0, p - 1))} disabled={page === 0} className="rounded-lg border border-neutral-300 px-3 py-1.5 text-sm disabled:opacity-50">←</button>
-                <span className="text-sm text-neutral-600">{page + 1} / {totalPages}</span>
-                <button type="button" onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))} disabled={page >= totalPages - 1} className="rounded-lg border border-neutral-300 px-3 py-1.5 text-sm disabled:opacity-50">→</button>
+                <button
+                  type="button"
+                  onClick={() => setPage((p) => Math.max(0, p - 1))}
+                  disabled={page === 0}
+                  className="rounded-lg border border-neutral-300 p-2 text-neutral-600 hover:bg-neutral-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                  aria-label={t.common.prev}
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <span className="text-sm text-neutral-600 font-medium px-2">{page + 1} / {totalPages}</span>
+                <button
+                  type="button"
+                  onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+                  disabled={page >= totalPages - 1}
+                  className="rounded-lg border border-neutral-300 p-2 text-neutral-600 hover:bg-neutral-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                  aria-label={t.common.next}
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
               </div>
             )}
           </>
         )}
       </div>
+
+      <ConfirmDialog
+        isOpen={confirmState.isOpen}
+        title={confirmState.title}
+        message={confirmState.message}
+        onConfirm={confirmState.onConfirm}
+        onCancel={closeConfirm}
+        isDestructive
+      />
     </>
   )
 }

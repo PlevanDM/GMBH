@@ -88,7 +88,7 @@ function PowerStationsTab() {
                         {row.name}
                         {row.specs && <span className="text-neutral-500 block text-xs">{row.specs}</span>}
                       </td>
-                      <td className="px-4 py-2 text-right">{row.price_eu} €</td>
+                      <td className="px-4 py-2 text-right">{row.price_eu?.toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })}</td>
                       <td className="px-4 py-2">
                         <ul className="space-y-0.5">
                           {row.offers.slice(0, 3).map((o, i) => (

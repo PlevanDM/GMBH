@@ -134,19 +134,19 @@ function SellRecommendation({
       </h4>
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <div className="text-center">
-          <div className="text-[10px] font-semibold text-neutral-500 uppercase mb-1">Grade A</div>
+          <div className="text-[10px] font-semibold text-neutral-500 uppercase mb-1">{t.scout.grades.a}</div>
           <div className="text-base font-extrabold text-green-600">{fmtPrice(sellPrices.gradeA, locale)}</div>
         </div>
         <div className="text-center">
-          <div className="text-[10px] font-semibold text-neutral-500 uppercase mb-1">Grade B</div>
+          <div className="text-[10px] font-semibold text-neutral-500 uppercase mb-1">{t.scout.grades.b}</div>
           <div className="text-base font-extrabold text-primary">{fmtPrice(sellPrices.gradeB, locale)}</div>
         </div>
         <div className="text-center">
-          <div className="text-[10px] font-semibold text-neutral-500 uppercase mb-1">Grade C</div>
+          <div className="text-[10px] font-semibold text-neutral-500 uppercase mb-1">{t.scout.grades.c}</div>
           <div className="text-base font-extrabold text-amber-600">{fmtPrice(sellPrices.gradeC, locale)}</div>
         </div>
         <div className="text-center">
-          <div className="text-[10px] font-semibold text-neutral-500 uppercase mb-1">Quick Sale</div>
+          <div className="text-[10px] font-semibold text-neutral-500 uppercase mb-1">{t.scout.grades.quick}</div>
           <div className="text-base font-extrabold text-red-500">{fmtPrice(sellPrices.quickSale, locale)}</div>
         </div>
       </div>
@@ -296,7 +296,7 @@ export default function MyLaptopRecommendations() {
       }
     })
     return () => { cancelled = true }
-  }, [activeQuery, valuationType]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [activeQuery, valuationType, brand, model, t.dashboard.importError])
 
   const handleSearch = useCallback(() => {
     const q = getProductSearchQuery(brand, model).trim()
@@ -400,17 +400,17 @@ export default function MyLaptopRecommendations() {
       {/* ── Search form ── */}
       <div className="mt-6 rounded-xl border border-neutral-200 bg-gradient-to-br from-neutral-50 to-white p-5">
         <div className="mb-4 flex flex-wrap gap-2">
-          {(['retail', 'buyback', 'wholesale'] as ValuationType[]).map((t) => (
+          {(['retail', 'buyback', 'wholesale'] as ValuationType[]).map((vType) => (
             <button
-              key={t}
-              onClick={() => setValuationType(t)}
+              key={vType}
+              onClick={() => setValuationType(vType)}
               className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all border ${
-                valuationType === t
+                valuationType === vType
                   ? 'bg-accent text-white border-accent shadow-sm'
                   : 'bg-white text-neutral-500 border-neutral-200 hover:border-neutral-300'
               }`}
             >
-              {t === 'retail' ? 'Retail' : t === 'buyback' ? 'Buyback' : 'Wholesale'}
+              {t.scout.valuationTypes[vType]}
             </button>
           ))}
         </div>
@@ -581,7 +581,7 @@ export default function MyLaptopRecommendations() {
             </div>
             <div className="flex items-center gap-2">
               {priceResult?.cached && (
-                <span className="text-[10px] text-neutral-400 bg-neutral-100 px-2 py-1 rounded-full">cache</span>
+                <span className="text-[10px] text-neutral-400 bg-neutral-100 px-2 py-1 rounded-full">{t.scout.cache}</span>
               )}
               <button type="button" onClick={handleRefresh} disabled={loading}
                 className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold bg-neutral-100 text-neutral-600 hover:bg-neutral-200 border border-neutral-200 transition-colors min-h-[36px] disabled:opacity-50">
@@ -675,7 +675,7 @@ export default function MyLaptopRecommendations() {
                   </div>
                   {priceResult && priceResult.aggregated.weightedMid !== priceResult.aggregated.mid && (
                     <div className="text-[10px] text-neutral-400 mt-0.5">
-                    unweighted: {fmtPrice(priceResult.aggregated.mid, locale)}
+                    {t.scout.unweighted} {fmtPrice(priceResult.aggregated.mid, locale)}
                     </div>
                   )}
                 </div>
@@ -768,7 +768,7 @@ export default function MyLaptopRecommendations() {
                 <ConfidenceBadge value={priceResult.estimate.confidence} />
                 {priceResult.estimate.refModelUsed && (
                   <span className="text-[10px] text-accent bg-accent/10 px-2 py-0.5 rounded-full ml-2">
-                    ref model match
+                    {t.scout.refModelMatch}
                   </span>
                 )}
               </summary>

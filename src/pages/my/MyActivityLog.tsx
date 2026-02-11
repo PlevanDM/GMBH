@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { IconActivity } from '../../components/CabinetIcons'
 import { useInventory } from '../../store/inventoryStore'
 import { useBuyer } from '../../store/buyerStore'
@@ -135,16 +136,32 @@ export default function MyActivityLog() {
                   <p className="mt-0.5 text-xs text-neutral-500">{entry.details}</p>
                 </div>
                 <time className="flex-shrink-0 text-xs text-neutral-400 whitespace-nowrap">
-                  {new Date(entry.date).toLocaleString(locale, { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                  {new Date(entry.date).toLocaleString(locale, { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
                 </time>
               </div>
             ))}
           </div>
           {totalPages > 1 && (
             <div className="mt-4 flex items-center justify-center gap-2">
-              <button type="button" onClick={() => setPage((p) => Math.max(0, p - 1))} disabled={page === 0} className="rounded-lg border border-neutral-300 px-3 py-1.5 text-sm disabled:opacity-50">←</button>
-              <span className="text-sm text-neutral-600">{page + 1} / {totalPages}</span>
-              <button type="button" onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))} disabled={page >= totalPages - 1} className="rounded-lg border border-neutral-300 px-3 py-1.5 text-sm disabled:opacity-50">→</button>
+              <button
+                type="button"
+                onClick={() => setPage((p) => Math.max(0, p - 1))}
+                disabled={page === 0}
+                className="rounded-lg border border-neutral-300 p-2 text-neutral-600 hover:bg-neutral-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                aria-label={t.common.prev}
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <span className="text-sm text-neutral-600 font-medium px-2">{page + 1} / {totalPages}</span>
+              <button
+                type="button"
+                onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+                disabled={page >= totalPages - 1}
+                className="rounded-lg border border-neutral-300 p-2 text-neutral-600 hover:bg-neutral-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                aria-label={t.common.next}
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
             </div>
           )}
         </>

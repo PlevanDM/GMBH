@@ -2,6 +2,7 @@ import * as XLSX from 'xlsx'
 import type { Rfq } from '../types/buyer'
 
 export function exportRfqToExcel(rfq: Rfq) {
+  try {
   const data = rfq.items.map((it) => ({
     'Description': it.description,
     'Quantity': it.quantity,
@@ -20,9 +21,14 @@ export function exportRfqToExcel(rfq: Rfq) {
   // but for now, this is functional.
 
   XLSX.writeFile(wb, `RFQ-${rfq.id.slice(0, 8)}-${rfq.title.replace(/\s+/g, '_')}.xlsx`)
+  } catch (err) {
+    console.error('Failed to export RFQ to Excel:', err)
+    alert('Failed to export Excel file. Please check console for details.')
+  }
 }
 
 export async function exportRfqToPdf(rfq: Rfq) {
+  try {
   const { jsPDF } = await import('jspdf')
   const autoTable = (await import('jspdf-autotable')).default
 
@@ -48,18 +54,22 @@ export async function exportRfqToPdf(rfq: Rfq) {
 
   const tableData = rfq.items.map((it) => [
     it.description,
+    it.sku || it.inventoryNumber || '—',
     it.quantity.toString(),
     it.targetPrice ? `${it.targetPrice} ${it.currency}` : '—',
-    it.inventoryNumber || '—',
   ])
 
   autoTable(doc, {
     startY: 65,
-    head: [['Description', 'Qty', 'Price', 'Inv. #']],
+    head: [['Description', 'SKU / Model', 'Qty', 'Target Price']],
     body: tableData,
     headStyles: { fillColor: [30, 41, 59] },
     alternateRowStyles: { fillColor: [249, 250, 251] },
   })
 
   doc.save(`RFQ-${rfq.id.slice(0, 8)}.pdf`)
+  } catch (err) {
+    console.error('Failed to export RFQ to PDF:', err)
+    alert('Failed to export PDF file.')
+  }
 }

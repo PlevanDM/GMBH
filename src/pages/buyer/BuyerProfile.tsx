@@ -2,9 +2,10 @@ import { useState } from 'react'
 import { useBuyer } from '../../store/buyerStore'
 import { useBuyerLocale } from '../../i18n/BuyerLocaleContext'
 import type { BuyerCompany, BuyerUserRole, NotificationChannel } from '../../types/buyer'
+import ConfirmDialog from '../../components/ConfirmDialog'
 
 export default function BuyerProfile() {
-  const { t } = useBuyerLocale()
+  const { t, locale } = useBuyerLocale()
   const { company, users, notificationSettings, updateCompany, updateNotificationSettings, addUser, updateUser, deleteUser } = useBuyer()
 
   const roleLabels: Record<BuyerUserRole, string> = {
@@ -29,6 +30,20 @@ export default function BuyerProfile() {
   const [inviteEmail, setInviteEmail] = useState('')
   const [inviteName, setInviteName] = useState('')
   const [inviteRole, setInviteRole] = useState<BuyerUserRole>('BUYER')
+  const [error, setError] = useState<string | null>(null)
+  const [confirmState, setConfirmState] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: () => {},
+  })
+
+  const closeConfirm = () => setConfirmState(prev => ({ ...prev, isOpen: false }))
 
   const handleSaveCompany = () => {
     updateCompany({
@@ -47,7 +62,17 @@ export default function BuyerProfile() {
   }
 
   const handleInvite = () => {
-    if (!inviteEmail.trim()) return
+    setError(null)
+    const email = inviteEmail.trim()
+    if (!email) {
+      setError(t.errors.required)
+      return
+    }
+    if (!email.includes('@')) {
+      setError(t.errors.invalidEmail)
+      return
+    }
+
     addUser({
       email: inviteEmail.trim(),
       fullName: inviteName.trim() || inviteEmail.trim(),
@@ -59,6 +84,18 @@ export default function BuyerProfile() {
     setInviteName('')
     setInviteRole('BUYER')
     setInviteOpen(false)
+  }
+
+  const handleDeleteUser = (id: string, email: string) => {
+    setConfirmState({
+      isOpen: true,
+      title: t.delete,
+      message: `${t.profile.users.removeUser}: ${email}?`,
+      onConfirm: () => {
+        deleteUser(id)
+        closeConfirm()
+      }
+    })
   }
 
   return (
@@ -147,7 +184,7 @@ export default function BuyerProfile() {
                       {u.isActive ? t.profile.users.deactivateUser : t.profile.users.editUser}
                     </button>
                     {users.length > 1 && (
-                      <button type="button" onClick={() => deleteUser(u.id)} className="text-red-600 hover:underline text-sm">{t.delete}</button>
+                      <button type="button" onClick={() => handleDeleteUser(u.id, u.email)} className="text-red-600 hover:underline text-sm">{t.delete}</button>
                     )}
                   </td>
                 </tr>
@@ -177,7 +214,7 @@ export default function BuyerProfile() {
                   {u.isActive ? t.profile.users.deactivateUser : t.profile.users.editUser}
                 </button>
                 {users.length > 1 && (
-                  <button type="button" onClick={() => deleteUser(u.id)} className="text-red-600 text-sm hover:underline">{t.delete}</button>
+                  <button type="button" onClick={() => handleDeleteUser(u.id, u.email)} className="text-red-600 text-sm hover:underline">{t.delete}</button>
                 )}
               </div>
             </div>
@@ -189,7 +226,8 @@ export default function BuyerProfile() {
             <h4 className="text-sm font-semibold text-neutral-800">{t.profile.users.inviteUser}</h4>
             <label className="mt-3 block">
               <span className="text-sm text-neutral-700">Email</span>
-              <input type="email" value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)} className="mt-1 block w-full rounded-lg border border-neutral-300 px-3 py-2.5 sm:py-2 text-[16px] sm:text-sm min-h-[44px] sm:min-h-0" />
+              <input type="email" value={inviteEmail} onChange={(e) => { setInviteEmail(e.target.value); setError(null) }} className={`mt-1 block w-full rounded-lg border ${error ? 'border-red-500' : 'border-neutral-300'} px-3 py-2.5 sm:py-2 text-[16px] sm:text-sm min-h-[44px] sm:min-h-0`} />
+              {error && <p className="mt-1 text-xs text-red-500">{error}</p>}
             </label>
             <label className="mt-2 block">
               <span className="text-sm text-neutral-700">{t.profile.users.table.name}</span>
@@ -249,11 +287,11 @@ export default function BuyerProfile() {
         <div className="mt-4 rounded-xl border border-neutral-200 bg-neutral-50/50 p-4 sm:max-w-md">
           <div className="flex justify-between text-sm gap-2">
             <span className="text-neutral-600">{t.profile.finance.creditLimit}</span>
-            <span className="font-medium text-neutral-800 shrink-0">{company.creditLimit != null ? company.creditLimit.toLocaleString('ru-RU') : '—'} €</span>
+            <span className="font-medium text-neutral-800 shrink-0">{company.creditLimit != null ? company.creditLimit.toLocaleString(locale, { style: 'currency', currency: 'EUR' }) : '—'}</span>
           </div>
           <div className="mt-2 flex justify-between text-sm gap-2">
             <span className="text-neutral-600">{t.profile.finance.creditUsed}</span>
-            <span className="font-medium text-neutral-800 shrink-0">{company.currentCreditUsed != null ? company.currentCreditUsed.toLocaleString('ru-RU') : '—'} €</span>
+            <span className="font-medium text-neutral-800 shrink-0">{company.currentCreditUsed != null ? company.currentCreditUsed.toLocaleString(locale, { style: 'currency', currency: 'EUR' }) : '—'}</span>
           </div>
           <div className="mt-2 flex justify-between text-sm gap-2">
             <span className="text-neutral-600">{t.profile.finance.paymentTerms}</span>
@@ -261,6 +299,17 @@ export default function BuyerProfile() {
           </div>
         </div>
       </section>
+
+      <ConfirmDialog
+        isOpen={confirmState.isOpen}
+        title={confirmState.title}
+        message={confirmState.message}
+        onConfirm={confirmState.onConfirm}
+        onCancel={closeConfirm}
+        confirmLabel={t.yes}
+        cancelLabel={t.no}
+        isDestructive
+      />
     </>
   )
 }

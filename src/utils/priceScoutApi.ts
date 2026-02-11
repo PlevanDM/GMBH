@@ -87,9 +87,10 @@ function getCached(query: string): PriceScoutResult | null {
 function setCache(query: string, result: PriceScoutResult) {
   const cache = getCache()
   const keys = Object.keys(cache)
-  if (keys.length > 50) {
-    const oldest = keys.sort((a, b) => cache[a].ts - cache[b].ts).slice(0, 10)
-    for (const k of oldest) delete cache[k]
+  if (keys.length >= 50) {
+    const sorted = keys.sort((a, b) => cache[a].ts - cache[b].ts)
+    const toRemove = sorted.slice(0, keys.length - 40) // Keep only latest 40
+    for (const k of toRemove) delete cache[k]
   }
   cache[query.toLowerCase()] = { result, ts: Date.now() }
   sessionStorage.setItem(CACHE_KEY, JSON.stringify(cache))
@@ -129,13 +130,14 @@ function addToHistory(query: string, result: PriceScoutResult) {
     if (all[key].length > 20) all[key] = all[key].slice(-20)
     // Keep max 100 queries
     const qKeys = Object.keys(all)
-    if (qKeys.length > 100) {
+    if (qKeys.length >= 100) {
       const sortedKeys = qKeys.sort((a, b) => {
         const lastA = all[a][all[a].length - 1]?.ts || 0
         const lastB = all[b][all[b].length - 1]?.ts || 0
         return lastA - lastB
       })
-      for (const k of sortedKeys.slice(0, 20)) delete all[k]
+      const toRemove = sortedKeys.slice(0, qKeys.length - 80) // Keep latest 80
+      for (const k of toRemove) delete all[k]
     }
     localStorage.setItem(HISTORY_KEY, JSON.stringify(all))
   } catch { /* ignore */ }

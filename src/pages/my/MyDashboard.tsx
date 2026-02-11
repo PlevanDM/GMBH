@@ -13,6 +13,11 @@ function formatDate(iso: string | null, locale: string) {
   })
 }
 
+function formatDateOnly(iso: string | null, locale: string) {
+  if (!iso) return '—'
+  return new Date(iso).toLocaleDateString(locale)
+}
+
 function formatCurrency(n: number, locale: string) {
   return n.toLocaleString(locale, { minimumFractionDigits: 0, maximumFractionDigits: 0 })
 }
@@ -132,7 +137,7 @@ export default function MyDashboard() {
         <KpiCard
           label={t.dashboard.valueKpi}
           value={`€${formatCurrency(stats.totalValue, locale)}`}
-          sub={`${stats.brands} ${t.scout.brand.toLowerCase()}. · ${stats.categories} ${t.dashboard.categories.toLowerCase().slice(0, 4)}.`}
+          sub={`${stats.brands} ${t.scout.brand.toLowerCase()} · ${stats.categories} ${t.dashboard.categories.toLowerCase()}`}
           icon={
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -142,13 +147,13 @@ export default function MyDashboard() {
         <KpiCard
           label={t.dashboard.requestsKpi}
           value={stats.rfqTotal}
-          sub={stats.rfqPending > 0 ? `${stats.rfqPending} ${t.rfq.stats.pending.toLowerCase()}` : '—'}
+          sub={stats.rfqSent > 0 ? `${stats.rfqSent} ${t.dashboard.newRequests.toLowerCase()}` : '—'}
           icon={
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
             </svg>
           }
-          accent={stats.rfqPending > 0}
+          accent={stats.rfqSent > 0}
         />
         <KpiCard
           label={t.dashboard.buyersKpi}
@@ -205,7 +210,7 @@ export default function MyDashboard() {
               <IconCpu className="w-4 h-4 text-accent" />
               {t.dashboard.valueKpi}
             </h3>
-            <span className="text-[10px] text-neutral-400 font-medium uppercase tracking-wider">Smart Engine v2</span>
+            <span className="text-[10px] text-neutral-400 font-medium uppercase tracking-wider">{t.common.smartEngine} v2</span>
           </div>
           <div className="p-5 grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="space-y-1">
@@ -329,7 +334,7 @@ export default function MyDashboard() {
                 <RfqStatusDot status={r.status} />
                 <div className="flex-1 min-w-0">
                   <p className="text-sm text-neutral-800 font-medium truncate">{r.title}</p>
-                  <p className="text-xs text-neutral-400">{r.items.length} {t.rfq.table.positions.toLowerCase()} · {new Date(r.createdAt).toLocaleDateString(locale)}</p>
+                  <p className="text-xs text-neutral-400">{r.items.length} {t.rfq.table.positions.toLowerCase()} · {formatDateOnly(r.createdAt, locale)}</p>
                 </div>
                 <span className={`shrink-0 inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${RFQ_STATUS_STYLES[r.status] || 'bg-neutral-100 text-neutral-600'}`}>
                   {t.rfq.statuses[r.status] || r.status}

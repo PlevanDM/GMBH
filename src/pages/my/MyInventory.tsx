@@ -17,6 +17,7 @@ import type { InventoryStatus } from '../../types/inventory'
 import { uploadInventoryFile, fetchGoogleSheetsCsv } from '../../api/myApi'
 import { exportInventoryToExcel } from '../../utils/exportInventory'
 import { estimatePrice, parseDeviceFromQuery } from '../../utils/priceEstimator'
+import ConfirmDialog from '../../components/ConfirmDialog'
 import {
   getCategories,
   getBrands,
@@ -71,9 +72,23 @@ export default function MyInventory() {
   const [filterIssue, setFilterIssue] = useState<'none' | 'no-price' | 'no-specs'>('none')
   const [apiFile, setApiFile] = useState<File | null>(null)
   const [apiStatus, setApiStatus] = useState<'idle' | 'uploading' | 'done' | 'error'>('idle')
-  const [showClearConfirm, setShowClearConfirm] = useState(false)
   const [googleSheetsUrl, setGoogleSheetsUrl] = useState('')
   const [googleSheetsLoading, setGoogleSheetsLoading] = useState(false)
+
+  const [confirmState, setConfirmState] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+    isDestructive?: boolean;
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: () => {},
+  })
+
+  const closeConfirm = () => setConfirmState(prev => ({ ...prev, isOpen: false }))
 
   // Mapping quality analysis
   const mappingAnalysis: MappingAnalysis | null = useMemo(
@@ -195,11 +210,15 @@ export default function MyInventory() {
         return false
 
       if (filterIssue === 'no-price') {
-        if (it.price && it.price > 0) return false
+        // Keep ONLY items that have NO price or price is 0
+        const hasPrice = it.price != null && Number(it.price) > 0
+        if (hasPrice) return false
       }
       if (filterIssue === 'no-specs') {
+        // Keep ONLY laptops that are MISSING specs
         const isLaptop = it.category?.toLowerCase().includes('laptop') || !it.category
-        if (!isLaptop || (it.processor && it.ram_raw && it.storage_raw)) return false
+        const hasSpecs = !!(it.processor && it.ram_raw && it.storage_raw)
+        if (!isLaptop || hasSpecs) return false
       }
 
       return true
@@ -302,9 +321,17 @@ export default function MyInventory() {
   }
 
   const handleBulkDelete = () => {
-    if (!window.confirm(t.inventory.bulk.deleteConfirm.replace('{{count}}', selectedIds.size.toString()))) return
-    removeItems(Array.from(selectedIds))
-    setSelectedIds(new Set())
+    setConfirmState({
+      isOpen: true,
+      title: t.inventory.bulk.deleteSelected,
+      message: t.inventory.bulk.deleteConfirm.replace('{{count}}', selectedIds.size.toString()),
+      isDestructive: true,
+      onConfirm: () => {
+        removeItems(Array.from(selectedIds))
+        setSelectedIds(new Set())
+        closeConfirm()
+      }
+    })
   }
 
   const handleBulkBatchChange = (batchId: string) => {
@@ -322,19 +349,25 @@ export default function MyInventory() {
   }
 
   const handleBulkMarketSync = () => {
-    if (!window.confirm(t.inventory.bulk.syncConfirm.replace('{{count}}', selectedIds.size.toString()))) return
-
-    Array.from(selectedIds).forEach(id => {
-      const it = items.find(x => x.id === id)
-      if (it) {
-        const device = parseDeviceFromQuery(it.brand || '', it.description || '')
-        const wholesale = estimatePrice(device, 'wholesale').mid
-        if (wholesale > 0) {
-          updateItem(id, { price: wholesale })
-        }
+    setConfirmState({
+      isOpen: true,
+      title: t.inventory.bulk.syncMarket,
+      message: t.inventory.bulk.syncConfirm.replace('{{count}}', selectedIds.size.toString()),
+      onConfirm: () => {
+        Array.from(selectedIds).forEach(id => {
+          const it = items.find(x => x.id === id)
+          if (it) {
+            const device = parseDeviceFromQuery(it.brand || '', it.description || '')
+            const wholesale = estimatePrice(device, 'wholesale').mid
+            if (wholesale > 0) {
+              updateItem(id, { price: wholesale })
+            }
+          }
+        })
+        setSelectedIds(new Set())
+        closeConfirm()
       }
     })
-    setSelectedIds(new Set())
   }
 
   return (
@@ -381,7 +414,7 @@ export default function MyInventory() {
       )}
 
       <p className="mt-2 text-neutral-600 leading-relaxed">
-        {t.scout.tip}. {t.inventory.uploadTitle} (Excel/CSV).
+        {t.scout.tip}. {t.inventory.uploadTitle} {t.inventory.excelCsv}.
       </p>
       {lastUpdated && (
         <p className="mt-2 text-sm text-neutral-500">
@@ -400,7 +433,21 @@ export default function MyInventory() {
 
         <button
           type="button"
-          onClick={() => setShowClearConfirm(true)}
+          onClick={() => {
+            setConfirmState({
+              isOpen: true,
+              title: t.inventory.clearAll,
+              message: `${t.inventory.clearConfirm} (${items.length} ${t.dashboard.items}, ${batches.length} ${t.inventory.batchesTitle.toLowerCase()})`,
+              isDestructive: true,
+              onConfirm: () => {
+                clearAll()
+                setFilterBatchId('')
+                setFilterCountry('')
+                setFilterSupplier('')
+                closeConfirm()
+              }
+            })
+          }}
           disabled={items.length === 0 && batches.length === 0}
           className="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-100 disabled:opacity-50 disabled:cursor-not-allowed"
         >
@@ -410,35 +457,6 @@ export default function MyInventory() {
           {t.inventory.clearConfirm}
         </span>
       </div>
-      {showClearConfirm && (
-        <div className="mt-3 rounded-xl border border-red-200 bg-red-50/80 p-4">
-          <p className="text-sm font-medium text-red-800">
-            {t.inventory.clearConfirm} ({items.length} items, {batches.length} batches)
-          </p>
-          <div className="mt-3 flex gap-2">
-            <button
-              type="button"
-              onClick={() => {
-                clearAll()
-                setShowClearConfirm(false)
-                setFilterBatchId('')
-                setFilterCountry('')
-                setFilterSupplier('')
-              }}
-              className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
-            >
-              OK
-            </button>
-            <button
-              type="button"
-              onClick={() => setShowClearConfirm(false)}
-              className="rounded-lg border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      )}
 
       <div className="mt-6 rounded-xl border border-neutral-200 bg-neutral-50 p-4">
         <h3 className="text-sm font-semibold text-primary">{t.inventory.import.googleTitle}</h3>
@@ -969,7 +987,7 @@ export default function MyInventory() {
           )}
 
           <div className="mt-4 overflow-x-auto rounded-xl border border-neutral-200">
-            <table className="w-full min-w-[1550px] text-left text-sm">
+            <table className="w-full min-w-[1200px] text-left text-sm">
               <thead>
                 <tr className="border-b border-neutral-200 bg-neutral-50">
                   <th className="px-3 py-2 w-10">
@@ -980,29 +998,30 @@ export default function MyInventory() {
                       className="rounded border-neutral-400"
                     />
                   </th>
-                  <th className="px-3 py-2 font-semibold text-neutral-700">{t.inventory.columns.description}</th>
+                  <th className="px-3 py-2 font-semibold text-neutral-700 sticky left-0 bg-neutral-50 z-10">{t.inventory.columns.description}</th>
                   <th className="px-3 py-2 font-semibold text-neutral-700">{t.inventory.columns.brand}</th>
                   <th className="px-3 py-2 font-semibold text-neutral-700">{t.inventory.columns.category}</th>
                   <th className="px-3 py-2 font-semibold text-neutral-700">{t.inventory.columns.condition}</th>
-                  <th className="px-3 py-2 font-semibold text-neutral-700">{t.inventory.columns.invNo}</th>
-                  <th className="px-3 py-2 font-semibold text-neutral-700">{t.inventory.columns.sn}</th>
-                  <th className="px-3 py-2 font-semibold text-neutral-700">{t.inventory.columns.photo}</th>
-                  <th className="px-3 py-2 font-semibold text-neutral-700">{t.inventory.columns.processor}</th>
-                  <th className="px-3 py-2 font-semibold text-neutral-700 text-[11px]">CPU (norm)</th>
-                  <th className="px-3 py-2 font-semibold text-neutral-700">{t.inventory.columns.ram}</th>
-                  <th className="px-3 py-2 font-semibold text-neutral-700 text-[11px]">RAM (GB)</th>
-                  <th className="px-3 py-2 font-semibold text-neutral-700">{t.inventory.columns.storage}</th>
-                  <th className="px-3 py-2 font-semibold text-neutral-700 text-[11px]">Disc (GB)</th>
-                  <th className="px-3 py-2 font-semibold text-neutral-700">{t.inventory.columns.gpu}</th>
-                  <th className="px-3 py-2 font-semibold text-neutral-700">{t.inventory.columns.year}</th>
-                  <th className="px-3 py-2 font-semibold text-neutral-700">{t.inventory.columns.cycles}</th>
-                  <th className="px-3 py-2 font-semibold text-neutral-700">{t.inventory.columns.health}</th>
+                  <th className="px-3 py-2 font-semibold text-neutral-700 hidden xl:table-cell">{t.inventory.columns.invNo}</th>
+                  <th className="px-3 py-2 font-semibold text-neutral-700 hidden xl:table-cell">{t.inventory.columns.sn}</th>
+                  <th className="px-3 py-2 font-semibold text-neutral-700 hidden 2xl:table-cell">{t.common.sku}</th>
+                  <th className="px-3 py-2 font-semibold text-neutral-700 hidden 2xl:table-cell">{t.inventory.columns.photo}</th>
+                  <th className="px-3 py-2 font-semibold text-neutral-700 hidden md:table-cell">{t.inventory.columns.processor}</th>
+                  <th className="px-3 py-2 font-semibold text-neutral-700 text-[11px] hidden lg:table-cell">CPU (norm)</th>
+                  <th className="px-3 py-2 font-semibold text-neutral-700 hidden md:table-cell">{t.inventory.columns.ram}</th>
+                  <th className="px-3 py-2 font-semibold text-neutral-700 text-[11px] hidden lg:table-cell">RAM (GB)</th>
+                  <th className="px-3 py-2 font-semibold text-neutral-700 hidden md:table-cell">{t.inventory.columns.storage}</th>
+                  <th className="px-3 py-2 font-semibold text-neutral-700 text-[11px] hidden lg:table-cell">Disc (GB)</th>
+                  <th className="px-3 py-2 font-semibold text-neutral-700 hidden xl:table-cell">{t.inventory.columns.gpu}</th>
+                  <th className="px-3 py-2 font-semibold text-neutral-700 hidden xl:table-cell">{t.inventory.columns.year}</th>
+                  <th className="px-3 py-2 font-semibold text-neutral-700 hidden 2xl:table-cell">{t.inventory.columns.cycles}</th>
+                  <th className="px-3 py-2 font-semibold text-neutral-700 hidden 2xl:table-cell">{t.inventory.columns.health}</th>
                   <th className="px-3 py-2 font-semibold text-neutral-700">{t.inventory.columns.price}</th>
-                  <th className="px-3 py-2 font-semibold text-neutral-700 text-[11px] text-emerald-700">Market Wholesale</th>
+                  <th className="px-3 py-2 font-semibold text-neutral-700 text-[11px] text-emerald-700">{t.common.marketWholesale}</th>
                   <th className="px-3 py-2 font-semibold text-neutral-700">{t.inventory.columns.qty}</th>
-                  <th className="px-3 py-2 font-semibold text-neutral-700">{t.inventory.columns.batch}</th>
-                  <th className="px-3 py-2 font-semibold text-neutral-700">{t.inventory.columns.location}</th>
-                  <th className="px-3 py-2 font-semibold text-neutral-700">{t.inventory.columns.notes}</th>
+                  <th className="px-3 py-2 font-semibold text-neutral-700 hidden lg:table-cell">{t.inventory.columns.batch}</th>
+                  <th className="px-3 py-2 font-semibold text-neutral-700 hidden lg:table-cell">{t.inventory.columns.location}</th>
+                  <th className="px-3 py-2 font-semibold text-neutral-700 hidden xl:table-cell">{t.inventory.columns.notes}</th>
                   <th className="px-3 py-2 font-semibold text-neutral-700">{t.inventory.columns.status}</th>
                   <th className="px-3 py-2 font-semibold text-neutral-700">{t.inventory.columns.actions}</th>
                 </tr>
@@ -1018,10 +1037,11 @@ export default function MyInventory() {
                           className="rounded border-neutral-400"
                         />
                       </td>
-                      <td className="max-w-[180px] truncate px-3 py-2 text-neutral-700" title={it.description}>
+                      <td className="max-w-[180px] truncate px-3 py-2 text-neutral-700 sticky left-0 bg-white/95 backdrop-blur-sm z-10" title={it.description}>
                         {editingId === it.id ? (
                           <input
                             defaultValue={it.description}
+                            autoFocus
                             onBlur={(e) => {
                               updateItem(it.id, { description: e.target.value })
                               setEditingId(null)
@@ -1065,7 +1085,7 @@ export default function MyInventory() {
                           className="w-full min-w-[50px] max-w-[80px] rounded border border-neutral-300 px-2 py-1 text-xs"
                         />
                       </td>
-                      <td className="px-3 py-2">
+                      <td className="px-3 py-2 hidden xl:table-cell">
                         <input
                           value={it.inventoryNumber ?? ''}
                           onChange={(e) => updateItem(it.id, { inventoryNumber: e.target.value || undefined })}
@@ -1073,7 +1093,7 @@ export default function MyInventory() {
                           className="w-full min-w-[70px] max-w-[100px] rounded border border-neutral-300 px-2 py-1 text-xs"
                         />
                       </td>
-                      <td className="px-3 py-2">
+                      <td className="px-3 py-2 hidden xl:table-cell">
                         <input
                           value={it.serialNumber ?? ''}
                           onChange={(e) => updateItem(it.id, { serialNumber: e.target.value || undefined })}
@@ -1081,7 +1101,15 @@ export default function MyInventory() {
                           className="w-full min-w-[70px] max-w-[100px] rounded border border-neutral-300 px-2 py-1 text-xs"
                         />
                       </td>
-                      <td className="px-3 py-2">
+                      <td className="px-3 py-2 hidden 2xl:table-cell">
+                        <input
+                          value={it.sku ?? ''}
+                          onChange={(e) => updateItem(it.id, { sku: e.target.value || undefined })}
+                          placeholder="—"
+                          className="w-full min-w-[70px] max-w-[100px] rounded border border-neutral-300 px-2 py-1 text-xs"
+                        />
+                      </td>
+                      <td className="px-3 py-2 hidden 2xl:table-cell">
                         <input
                           type="url"
                           value={it.imageUrl ?? ''}
@@ -1090,7 +1118,7 @@ export default function MyInventory() {
                           className="w-full min-w-[80px] max-w-[140px] rounded border border-neutral-300 px-2 py-1 text-xs"
                         />
                       </td>
-                      <td className="px-3 py-2">
+                      <td className="px-3 py-2 hidden md:table-cell">
                         <input
                           list="inventory-processors-list"
                           value={it.processor ?? ''}
@@ -1099,7 +1127,7 @@ export default function MyInventory() {
                           className="w-full min-w-[80px] max-w-[120px] rounded border border-neutral-300 px-2 py-1 text-xs"
                         />
                       </td>
-                      <td className="px-3 py-2">
+                      <td className="px-3 py-2 hidden lg:table-cell">
                         <input
                           value={it.laptopCpuFamily ?? ''}
                           onChange={(e) => updateItem(it.id, { laptopCpuFamily: e.target.value || undefined })}
@@ -1107,7 +1135,7 @@ export default function MyInventory() {
                           className="w-full min-w-[60px] max-w-[80px] rounded border border-neutral-200 bg-neutral-50 px-2 py-1 text-[10px]"
                         />
                       </td>
-                      <td className="px-3 py-2">
+                      <td className="px-3 py-2 hidden md:table-cell">
                         <input
                           value={it.ram_raw ?? ''}
                           onChange={(e) => updateItem(it.id, { ram_raw: e.target.value || undefined })}
@@ -1115,7 +1143,7 @@ export default function MyInventory() {
                           className="w-full min-w-[60px] max-w-[90px] rounded border border-neutral-300 px-2 py-1 text-xs"
                         />
                       </td>
-                      <td className="px-3 py-2">
+                      <td className="px-3 py-2 hidden lg:table-cell">
                         <input
                           type="number"
                           value={it.laptopRamGb ?? ''}
@@ -1124,7 +1152,7 @@ export default function MyInventory() {
                           className="w-full min-w-[40px] max-w-[60px] rounded border border-neutral-200 bg-neutral-50 px-2 py-1 text-[10px]"
                         />
                       </td>
-                      <td className="px-3 py-2">
+                      <td className="px-3 py-2 hidden md:table-cell">
                         <input
                           value={it.storage_raw ?? ''}
                           onChange={(e) => updateItem(it.id, { storage_raw: e.target.value || undefined })}
@@ -1132,7 +1160,7 @@ export default function MyInventory() {
                           className="w-full min-w-[60px] max-w-[90px] rounded border border-neutral-300 px-2 py-1 text-xs"
                         />
                       </td>
-                      <td className="px-3 py-2">
+                      <td className="px-3 py-2 hidden lg:table-cell">
                         <input
                           type="number"
                           value={it.laptopStorageGb ?? ''}
@@ -1141,7 +1169,7 @@ export default function MyInventory() {
                           className="w-full min-w-[50px] max-w-[70px] rounded border border-neutral-200 bg-neutral-50 px-2 py-1 text-[10px]"
                         />
                       </td>
-                      <td className="px-3 py-2">
+                      <td className="px-3 py-2 hidden xl:table-cell">
                         <input
                           value={it.gpu_raw ?? ''}
                           onChange={(e) => updateItem(it.id, { gpu_raw: e.target.value || undefined })}
@@ -1149,7 +1177,7 @@ export default function MyInventory() {
                           className="w-full min-w-[60px] max-w-[100px] rounded border border-neutral-300 px-2 py-1 text-xs"
                         />
                       </td>
-                      <td className="px-3 py-2">
+                      <td className="px-3 py-2 hidden xl:table-cell">
                         <input
                           list="inventory-years-list"
                           value={it.year ?? ''}
@@ -1158,7 +1186,7 @@ export default function MyInventory() {
                           className="w-full min-w-[50px] max-w-[70px] rounded border border-neutral-300 px-2 py-1 text-xs"
                         />
                       </td>
-                      <td className="px-3 py-2">
+                      <td className="px-3 py-2 hidden 2xl:table-cell">
                         <input
                           value={it.batteryCycles ?? ''}
                           onChange={(e) => updateItem(it.id, { batteryCycles: e.target.value || undefined })}
@@ -1166,7 +1194,7 @@ export default function MyInventory() {
                           className="w-full min-w-[50px] max-w-[70px] rounded border border-neutral-300 px-2 py-1 text-xs"
                         />
                       </td>
-                      <td className="px-3 py-2">
+                      <td className="px-3 py-2 hidden 2xl:table-cell">
                         <input
                           value={it.batteryHealth ?? ''}
                           onChange={(e) => updateItem(it.id, { batteryHealth: e.target.value || undefined })}
@@ -1225,7 +1253,7 @@ export default function MyInventory() {
                           className="w-full min-w-[50px] max-w-[70px] rounded border border-neutral-300 px-2 py-1 text-xs"
                         />
                       </td>
-                      <td className="px-3 py-2">
+                      <td className="px-3 py-2 hidden lg:table-cell">
                         <select
                           value={it.batchId ?? ''}
                           onChange={(e) => updateItem(it.id, { batchId: e.target.value || undefined })}
@@ -1237,7 +1265,7 @@ export default function MyInventory() {
                           ))}
                         </select>
                       </td>
-                      <td className="px-3 py-2">
+                      <td className="px-3 py-2 hidden lg:table-cell">
                         <input
                           list="inventory-locations-list"
                           value={it.location ?? ''}
@@ -1246,7 +1274,7 @@ export default function MyInventory() {
                           className="w-full min-w-[90px] max-w-[130px] rounded border border-neutral-300 px-2 py-1 text-xs"
                         />
                       </td>
-                      <td className="px-3 py-2 max-w-[140px]">
+                      <td className="px-3 py-2 max-w-[140px] hidden xl:table-cell">
                         <input
                           value={it.notes ?? ''}
                           onChange={(e) => updateItem(it.id, { notes: e.target.value || undefined })}
@@ -1283,6 +1311,15 @@ export default function MyInventory() {
           </>
         )}
       </div>
+
+      <ConfirmDialog
+        isOpen={confirmState.isOpen}
+        title={confirmState.title}
+        message={confirmState.message}
+        onConfirm={confirmState.onConfirm}
+        onCancel={closeConfirm}
+        isDestructive={confirmState.isDestructive}
+      />
     </>
   )
 }

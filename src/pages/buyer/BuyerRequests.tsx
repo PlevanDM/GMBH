@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useBuyer } from '../../store/buyerStore'
 import { useBuyerLocale } from '../../i18n/BuyerLocaleContext'
 import type { RfqStatus } from '../../types/buyer'
+import ConfirmDialog from '../../components/ConfirmDialog'
 
 const RFQ_STATUS_STYLES: Record<RfqStatus, string> = {
   DRAFT: 'bg-neutral-100 text-neutral-700',
@@ -26,6 +27,19 @@ export default function BuyerRequests() {
   const [statusFilter, setStatusFilter] = useState<RfqStatus | 'all'>('all')
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
+  const [confirmState, setConfirmState] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: () => {},
+  })
+
+  const closeConfirm = () => setConfirmState(prev => ({ ...prev, isOpen: false }))
 
   const statusLabels: Record<RfqStatus, string> = t.rfqDetail.statuses as Record<RfqStatus, string>
 
@@ -47,9 +61,16 @@ export default function BuyerRequests() {
   }
 
   const handleDelete = (id: string) => {
-    const confirmed = window.confirm((t.rfqDetail as Record<string, unknown>).confirmDelete as string ?? 'Delete this RFQ?')
-    if (!confirmed) return
-    deleteRfq(id)
+    const rfq = rfqs.find(r => r.id === id)
+    setConfirmState({
+      isOpen: true,
+      title: t.rfqDetail.deleteRfq,
+      message: `${t.confirmDelete} (${rfq?.title || id})`,
+      onConfirm: () => {
+        deleteRfq(id)
+        closeConfirm()
+      }
+    })
   }
 
   return (
@@ -214,6 +235,17 @@ export default function BuyerRequests() {
           ))
         )}
       </div>
+
+      <ConfirmDialog
+        isOpen={confirmState.isOpen}
+        title={confirmState.title}
+        message={confirmState.message}
+        onConfirm={confirmState.onConfirm}
+        onCancel={closeConfirm}
+        confirmLabel={t.yes}
+        cancelLabel={t.no}
+        isDestructive
+      />
     </>
   )
 }
