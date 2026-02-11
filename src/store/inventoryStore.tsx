@@ -9,6 +9,7 @@ import {
 } from 'react'
 import type { InventoryItem, InventoryBatch } from '../types/inventory'
 import { getSeedTradeInItems } from '../data/seedTradeIn'
+import { dataStorage as ds } from '../api/storageAdapter'
 
 const STORAGE_KEY = 'restart-inventory'
 const STORAGE_META_KEY = 'restart-inventory-meta'
@@ -24,48 +25,29 @@ interface InventoryMeta {
 }
 
 function loadBatches(): InventoryBatch[] {
-  try {
-    const raw = localStorage.getItem(STORAGE_BATCHES_KEY)
-    return raw ? JSON.parse(raw) : []
-  } catch {
-    return []
-  }
+  return ds.getItem<InventoryBatch[]>(STORAGE_BATCHES_KEY, [])
 }
 
 function saveBatches(batches: InventoryBatch[]) {
-  try {
-    localStorage.setItem(STORAGE_BATCHES_KEY, JSON.stringify(batches))
-  } catch (e) {
-    // Storage write failed — gracefully ignored
-  }
+  ds.setItem(STORAGE_BATCHES_KEY, batches)
 }
 
 function loadFromStorage(): { items: InventoryItem[]; meta: InventoryMeta; batches: InventoryBatch[] } {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    const metaRaw = localStorage.getItem(STORAGE_META_KEY)
-    let items: InventoryItem[] = raw ? JSON.parse(raw) : []
-    const meta: InventoryMeta = metaRaw
-      ? JSON.parse(metaRaw)
-      : { lastUpdated: null }
-    const batches = loadBatches()
-    const batchIds = new Set(batches.map((b) => b.id))
-    const cleaned = items.map((it) => (it.batchId && !batchIds.has(it.batchId) ? { ...it, batchId: undefined } : it))
-    if (cleaned.some((it, i) => it.batchId !== items[i].batchId))
-      saveToStorage(cleaned, meta.lastUpdated)
-    return { items: cleaned, meta, batches }
-  } catch {
-    return { items: [], meta: { lastUpdated: null }, batches: [] }
-  }
+  const items: InventoryItem[] = ds.getItem<InventoryItem[]>(STORAGE_KEY, [])
+  const meta: InventoryMeta = ds.getItem<InventoryMeta>(STORAGE_META_KEY, { lastUpdated: null })
+  const batches = loadBatches()
+  const batchIds = new Set(batches.map((b) => b.id))
+  const cleaned = items.map((it) => (it.batchId && !batchIds.has(it.batchId) ? { ...it, batchId: undefined } : it))
+
+  if (cleaned.some((it, i) => it.batchId !== items[i]?.batchId))
+    saveToStorage(cleaned, meta.lastUpdated)
+
+  return { items: cleaned, meta, batches }
 }
 
 function saveToStorage(items: InventoryItem[], lastUpdated: string | null) {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(items))
-    localStorage.setItem(STORAGE_META_KEY, JSON.stringify({ lastUpdated }))
-  } catch (e) {
-    // Storage write failed — gracefully ignored
-  }
+  ds.setItem(STORAGE_KEY, items)
+  ds.setItem(STORAGE_META_KEY, { lastUpdated })
 }
 
 interface InventoryContextValue {
@@ -76,7 +58,9 @@ interface InventoryContextValue {
   replaceItems: (items: InventoryItem[]) => void
   addItems: (items: InventoryItem[]) => void
   updateItem: (id: string, patch: Partial<InventoryItem>) => void
+  updateItems: (ids: string[], patch: Partial<InventoryItem>) => void
   removeItem: (id: string) => void
+  removeItems: (ids: string[]) => void
   getAvailable: () => InventoryItem[]
   addBatch: (batch: Omit<InventoryBatch, 'id' | 'createdAt'>) => InventoryBatch
   updateBatch: (id: string, patch: Partial<InventoryBatch>) => void
@@ -93,9 +77,7 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
 
   const setItems = useCallback((items: InventoryItem[]) => {
     if (items.length > 0) {
-      try {
-        localStorage.removeItem(STORAGE_CLEARED_FLAG)
-      } catch {}
+      ds.removeItem(STORAGE_CLEARED_FLAG)
     }
     const now = new Date().toISOString()
     setState((prev) => {
@@ -110,9 +92,7 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
   }, [setItems])
 
   const addItems = useCallback((newItems: InventoryItem[]) => {
-    try {
-      localStorage.removeItem(STORAGE_CLEARED_FLAG)
-    } catch {}
+    ds.removeItem(STORAGE_CLEARED_FLAG)
     const now = new Date().toISOString()
     setState((prev) => {
       const items = [...prev.items, ...newItems]
@@ -132,10 +112,32 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
     })
   }, [])
 
+  const updateItems = useCallback((ids: string[], patch: Partial<InventoryItem>) => {
+    const now = new Date().toISOString()
+    const idSet = new Set(ids)
+    setState((prev) => {
+      const items = prev.items.map((it) =>
+        idSet.has(it.id) ? { ...it, ...patch, updatedAt: now } : it
+      )
+      saveToStorage(items, now)
+      return { ...prev, items, meta: { lastUpdated: now } }
+    })
+  }, [])
+
   const removeItem = useCallback((id: string) => {
     const now = new Date().toISOString()
     setState((prev) => {
       const items = prev.items.filter((it) => it.id !== id)
+      saveToStorage(items, now)
+      return { ...prev, items, meta: { lastUpdated: now } }
+    })
+  }, [])
+
+  const removeItems = useCallback((ids: string[]) => {
+    const now = new Date().toISOString()
+    const idSet = new Set(ids)
+    setState((prev) => {
+      const items = prev.items.filter((it) => !idSet.has(it.id))
       saveToStorage(items, now)
       return { ...prev, items, meta: { lastUpdated: now } }
     })
@@ -185,16 +187,12 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
   )
 
   const clearAll = useCallback(() => {
-    try {
-      const now = new Date().toISOString()
-      localStorage.setItem(STORAGE_KEY, '[]')
-      localStorage.setItem(STORAGE_META_KEY, JSON.stringify({ lastUpdated: now }))
-      saveBatches([])
-      localStorage.setItem(STORAGE_CLEARED_FLAG, '1')
-    } catch (e) {
-      // Storage clear failed — gracefully ignored
-    }
-    setState({ items: [], batches: [], meta: { lastUpdated: new Date().toISOString() } })
+    const now = new Date().toISOString()
+    ds.setItem(STORAGE_KEY, [])
+    ds.setItem(STORAGE_META_KEY, { lastUpdated: now })
+    saveBatches([])
+    ds.setItem(STORAGE_CLEARED_FLAG, '1')
+    setState({ items: [], batches: [], meta: { lastUpdated: now } })
   }, [])
 
   const value = useMemo<InventoryContextValue>(
@@ -206,7 +204,9 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
       replaceItems,
       addItems,
       updateItem,
+      updateItems,
       removeItem,
+      removeItems,
       getAvailable,
       addBatch,
       updateBatch,
@@ -244,20 +244,14 @@ function LoadSeedIfEmpty() {
   const { items, replaceItems } = useInventory()
   useEffect(() => {
     // Check seed version — re-seed if outdated or empty
-    let storedVersion = 0
-    try {
-      storedVersion = Number(localStorage.getItem(SEED_VERSION_KEY)) || 0
-    } catch { /* */ }
-
-    const userCleared = (() => {
-      try { return localStorage.getItem(STORAGE_CLEARED_FLAG) === '1' } catch { return false }
-    })()
+    const storedVersion = Number(ds.getItem<string>(SEED_VERSION_KEY, '0')) || 0
+    const userCleared = ds.getItem<string>(STORAGE_CLEARED_FLAG, '0') === '1'
 
     const needReseed = !userCleared && (items.length === 0 || storedVersion < SEED_VERSION)
 
     if (needReseed) {
       replaceItems(getSeedTradeInItems())
-      try { localStorage.setItem(SEED_VERSION_KEY, String(SEED_VERSION)) } catch { /* */ }
+      ds.setItem(SEED_VERSION_KEY, String(SEED_VERSION))
     }
   }, [])
   return null

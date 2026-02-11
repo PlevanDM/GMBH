@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useBuyer } from '../../store/buyerStore'
 import { useBuyerLocale } from '../../i18n/BuyerLocaleContext'
 import type { RfqStatus } from '../../types/buyer'
+import ConfirmDialog from '../../components/ConfirmDialog'
 
 const RFQ_STATUS_STYLES: Record<RfqStatus, string> = {
   DRAFT: 'bg-neutral-100 text-neutral-700',
@@ -21,11 +22,24 @@ const ALL_STATUSES: RfqStatus[] = [
 
 export default function BuyerRequests() {
   const navigate = useNavigate()
-  const { t } = useBuyerLocale()
+  const { t, locale } = useBuyerLocale()
   const { rfqs, createRfq, deleteRfq } = useBuyer()
   const [statusFilter, setStatusFilter] = useState<RfqStatus | 'all'>('all')
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
+  const [confirmState, setConfirmState] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: () => {},
+  })
+
+  const closeConfirm = () => setConfirmState(prev => ({ ...prev, isOpen: false }))
 
   const statusLabels: Record<RfqStatus, string> = t.rfqDetail.statuses as Record<RfqStatus, string>
 
@@ -47,9 +61,16 @@ export default function BuyerRequests() {
   }
 
   const handleDelete = (id: string) => {
-    const confirmed = window.confirm((t.rfqDetail as Record<string, unknown>).confirmDelete as string ?? 'Delete this RFQ?')
-    if (!confirmed) return
-    deleteRfq(id)
+    const rfq = rfqs.find(r => r.id === id)
+    setConfirmState({
+      isOpen: true,
+      title: t.rfqDetail.deleteRfq,
+      message: `${t.confirmDelete} (${rfq?.title || id})`,
+      onConfirm: () => {
+        deleteRfq(id)
+        closeConfirm()
+      }
+    })
   }
 
   return (
@@ -143,12 +164,12 @@ export default function BuyerRequests() {
                     <Link to={`/buyer/requests/${r.id}`} className="font-medium text-primary hover:underline">{r.title}</Link>
                     <span className="text-neutral-500 block text-xs">{r.id.slice(0, 8)}…</span>
                   </td>
-                  <td className="px-4 py-3 text-neutral-700">{new Date(r.createdAt).toLocaleDateString()}</td>
+                  <td className="px-4 py-3 text-neutral-700">{new Date(r.createdAt).toLocaleDateString(locale)}</td>
                   <td className="px-4 py-3">
                     <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${RFQ_STATUS_STYLES[r.status]}`}>{statusLabels[r.status]}</span>
                   </td>
                   <td className="px-4 py-3 text-neutral-700">{r.items.length}</td>
-                  <td className="px-4 py-3 text-neutral-700">{r.expiresAt ? new Date(r.expiresAt).toLocaleDateString() : '—'}</td>
+                  <td className="px-4 py-3 text-neutral-700">{r.expiresAt ? new Date(r.expiresAt).toLocaleDateString(locale) : '—'}</td>
                   <td className="px-4 py-3">
                     <div className="flex flex-wrap gap-1.5">
                       <Link to={`/buyer/requests/${r.id}`} className="text-accent hover:underline text-sm">{t.rfqList.actions.open}</Link>
@@ -191,7 +212,7 @@ export default function BuyerRequests() {
               <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-neutral-600">
                 <div>
                   <span className="text-neutral-400">{t.rfqList.columns.createdAt}:</span>
-                  <span className="ml-1 font-medium">{new Date(r.createdAt).toLocaleDateString()}</span>
+                  <span className="ml-1 font-medium">{new Date(r.createdAt).toLocaleDateString(locale)}</span>
                 </div>
                 <div>
                   <span className="text-neutral-400">{t.rfqList.columns.itemsCount}:</span>
@@ -200,7 +221,7 @@ export default function BuyerRequests() {
                 {r.expiresAt && (
                   <div className="col-span-2">
                     <span className="text-neutral-400">{t.rfqList.columns.expiresAt}:</span>
-                    <span className="ml-1 font-medium">{new Date(r.expiresAt).toLocaleDateString()}</span>
+                    <span className="ml-1 font-medium">{new Date(r.expiresAt).toLocaleDateString(locale)}</span>
                   </div>
                 )}
               </div>
@@ -214,6 +235,17 @@ export default function BuyerRequests() {
           ))
         )}
       </div>
+
+      <ConfirmDialog
+        isOpen={confirmState.isOpen}
+        title={confirmState.title}
+        message={confirmState.message}
+        onConfirm={confirmState.onConfirm}
+        onCancel={closeConfirm}
+        confirmLabel={t.yes}
+        cancelLabel={t.no}
+        isDestructive
+      />
     </>
   )
 }

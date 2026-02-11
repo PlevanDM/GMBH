@@ -1,8 +1,10 @@
 import type { ReactNode } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { getArticleById, getCategoryById } from '../../data/knowledge'
+import { useSellerLocale } from '../../i18n/SellerLocaleContext'
 
 export default function KnowledgeArticlePage() {
+  const { t } = useSellerLocale()
   const { id } = useParams<{ id: string }>()
   const article = id ? getArticleById(id) : undefined
   const category = article ? getCategoryById(article.categoryId) : undefined
@@ -10,9 +12,9 @@ export default function KnowledgeArticlePage() {
   if (!article) {
     return (
       <div className="py-8">
-        <p className="text-neutral-500">Статья не найдена.</p>
+        <p className="text-neutral-500">{t.tools.knowledgeArticleNotFound}</p>
         <Link to="/tools/knowledge" className="text-accent hover:underline mt-4 inline-block">
-          ← К базе знаний
+          ← {t.tools.knowledgeBackToList}
         </Link>
       </div>
     )
@@ -20,10 +22,10 @@ export default function KnowledgeArticlePage() {
 
   return (
     <>
-      <nav className="text-sm text-neutral-500 mb-6" aria-label="Хлебные крошки">
-        <Link to="/" className="hover:text-primary">Сайт</Link>
+      <nav className="text-sm text-neutral-500 mb-6" aria-label="Breadcrumbs">
+        <Link to="/" className="hover:text-primary">{t.tools.knowledgeHome}</Link>
         <span className="mx-2">/</span>
-        <Link to="/tools/knowledge" className="hover:text-primary">База знаний</Link>
+        <Link to="/tools/knowledge" className="hover:text-primary">{t.tools.knowledge}</Link>
         {category && (
           <>
             <span className="mx-2">/</span>
@@ -37,7 +39,7 @@ export default function KnowledgeArticlePage() {
       <article>
         <h1 className="text-2xl font-bold text-primary">{article.title}</h1>
         <p className="mt-2 text-sm text-neutral-500">
-          Обновлено: {article.updatedAt}
+          {t.tools.knowledgeUpdated}: {article.updatedAt}
           {category && ` · ${category.title}`}
         </p>
         <div className="mt-6 prose prose-neutral max-w-none prose-headings:text-primary prose-p:text-neutral-700 prose-li:text-neutral-700">
@@ -97,7 +99,7 @@ export default function KnowledgeArticlePage() {
           to="/tools/knowledge"
           className="text-accent hover:underline inline-flex items-center gap-1"
         >
-          ← К списку статей
+          ← {t.tools.knowledgeBackToList}
         </Link>
       </div>
     </>

@@ -58,7 +58,7 @@ const QuoteCallbackBlock = memo(function QuoteCallbackBlock() {
           {/* Confidence note */}
           <div className="relative z-10 mt-8 pt-6 border-t border-white/[0.08]">
             <p className="text-xs text-white/40 leading-relaxed">
-              Mon–Fri, 9:00–18:00 CET
+              {t('home.workingHours')}
             </p>
           </div>
         </div>

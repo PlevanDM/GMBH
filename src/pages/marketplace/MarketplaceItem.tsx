@@ -5,13 +5,7 @@ import { getDemoImageUrl } from '../../data/demoImages'
 import ProductShowcase, {
   buildFeaturesFromInventory,
 } from '../../components/ui/product-showcase'
-
-const CONDITION_LABELS: Record<string, string> = {
-  NEW: 'New',
-  USED: 'Used',
-  REFURBISHED: 'Refurbished',
-  FOR_PARTS: 'For Parts',
-}
+import { useBuyerLocale } from '../../i18n/BuyerLocaleContext'
 
 const CONDITION_COLORS: Record<string, string> = {
   NEW: 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30',
@@ -37,6 +31,7 @@ const GLOW_BY_BRAND: Record<string, string> = {
 }
 
 export default function MarketplaceItem() {
+  const { t, locale } = useBuyerLocale()
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const { items } = useInventory()
@@ -45,12 +40,12 @@ export default function MarketplaceItem() {
   if (!id || !item) {
     return (
       <>
-        <PageHero title="Item not found" subtitle="" />
+        <PageHero title={t.publicStock.itemNotFound} subtitle="" />
         <section className="py-12">
           <div className="max-w-2xl mx-auto px-4 text-center">
-            <p className="text-neutral-600">This item is not available in the showcase.</p>
+            <p className="text-neutral-600">{t.publicStock.itemNotAvailable}</p>
             <Link to="/marketplace/stock" className="btn-primary mt-6 inline-block">
-              Back to Marketplace
+              {t.publicStock.backToMarket}
             </Link>
           </div>
         </section>
@@ -59,7 +54,7 @@ export default function MarketplaceItem() {
   }
 
   const conditionLabel = item.condition
-    ? CONDITION_LABELS[item.condition] ?? item.condition
+    ? t.stock.conditionValues[item.condition as keyof typeof t.stock.conditionValues] ?? item.condition
     : undefined
   const conditionColor = item.condition
     ? CONDITION_COLORS[item.condition] ?? undefined
@@ -75,7 +70,7 @@ export default function MarketplaceItem() {
 
   const priceStr =
     item.price != null && item.price > 0
-      ? `${item.price.toLocaleString('de-DE')} €`
+      ? `${item.price.toLocaleString(locale)} €`
       : null
 
   return (
@@ -109,8 +104,8 @@ export default function MarketplaceItem() {
             glowColor={glow}
             onRequestQuote={() => navigate('/#quote')}
             onBack={() => navigate('/marketplace/stock')}
-            ctaLabel="Get Offer"
-            backLabel="Marketplace"
+            ctaLabel={t.publicStock.getOffer}
+            backLabel={t.publicStock.marketplace}
           />
         </div>
       </section>

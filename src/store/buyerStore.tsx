@@ -14,6 +14,8 @@ import {
   normalizeLocationKey,
 } from '../data/catalogs'
 import { getDemoImageUrl } from '../data/demoImages'
+import { dataStorage as ds } from '../api/storageAdapter'
+import { estimatePrice, parseDeviceFromQuery } from '../utils/priceEstimator'
 import type {
   BuyerCompany,
   BuyerUser,
@@ -43,32 +45,23 @@ const DEFAULT_COMPANY_ID = 'company-1'
 const DEFAULT_USER_ID = 'user-1'
 
 function loadJson<T>(key: string, fallback: T): T {
-  try {
-    const raw = localStorage.getItem(key)
-    return raw ? JSON.parse(raw) : fallback
-  } catch {
-    return fallback
-  }
+  return ds.getItem<T>(key, fallback)
 }
 
 function saveJson(key: string, value: unknown) {
-  try {
-    localStorage.setItem(key, JSON.stringify(value))
-  } catch (e) {
-    // Storage write failed — gracefully ignored
-  }
+  ds.setItem(key, value)
 }
 
 const defaultCompany: BuyerCompany = {
   id: DEFAULT_COMPANY_ID,
-  name: 'ООО Покупатель',
-  legalName: 'Общество с ограниченной ответственностью «Покупатель»',
+  name: 'Wholesale Buyer Ltd.',
+  legalName: 'Wholesale Buyer International LLC',
   vatNumber: null,
-  registrationNumber: '1234567890',
-  legalAddress: 'Киев, ул. Примерная, 1',
+  registrationNumber: 'REG1234567890',
+  legalAddress: 'Cologne, Germany',
   billingAddress: null,
-  logisticsContact: 'Иванов И.И.',
-  logisticsPhone: '+7 (495) 000-00-00',
+  logisticsContact: 'John Logistics',
+  logisticsPhone: '+49 123 456789',
   billingEmail: 'billing@example.com',
   logoUrl: null,
   creditLimit: 1_000_000,
@@ -82,7 +75,7 @@ const defaultUser: BuyerUser = {
   id: DEFAULT_USER_ID,
   companyId: DEFAULT_COMPANY_ID,
   email: 'buyer@example.com',
-  fullName: 'Менеджер Покупатель',
+  fullName: 'Account Manager',
   phone: null,
   role: 'OWNER',
   isActive: true,
@@ -117,7 +110,11 @@ export function buildStockFromInventory(
   let list: StockItem[] = inventoryItems
     .filter((it) => it.status === 'available')
     .map((it, i) => {
-      const fallbackPrice = 5000 + (it.id.split('').reduce((a, c) => a + c.charCodeAt(0), 0) % 50000)
+      // Use smart estimation instead of random high numbers
+      const device = parseDeviceFromQuery(it.brand || '', it.description || '')
+      const estimatedRetail = estimatePrice(device, 'retail').mid
+      const fallbackPrice = estimatedRetail > 0 ? estimatedRetail : 450
+
       const basePrice = it.price != null && it.price > 0 ? Math.round(it.price) : fallbackPrice
       const hasMyPrice = (it.id.length + companyId.length) % 3 === 0
       const brand =
@@ -142,7 +139,7 @@ export function buildStockFromInventory(
         minOrderQty: 1,
         lotSize: null,
         images: [getDemoImageUrl(i, brand, it.category)],
-        labels: hasMyPrice ? ['Персональная цена'] : [],
+        labels: hasMyPrice ? ['Personal price'] : [],
         updatedAt: it.updatedAt,
         processor: it.processor,
         ram,
@@ -379,7 +376,7 @@ export function BuyerProvider({ children }: { children: ReactNode }) {
 
   const approveRfq = useCallback(
     (id: string) => {
-      const next = rfqs.map((r) =>
+      const next = rfqs.map((r: Rfq) =>
         r.id === id ? { ...r, status: 'APPROVED_BY_BUYER' as const, updatedAt: new Date().toISOString() } : r
       )
       setRfqs(next)
@@ -498,7 +495,7 @@ export function BuyerProvider({ children }: { children: ReactNode }) {
       const src = rfqs.find((r) => r.id === id)
       if (!src) throw new Error('RFQ not found')
       return createRfq({
-        title: `${src.title} (копия)`,
+        title: `${src.title} (copy)`,
         comment: src.comment,
         desiredDeliveryDate: src.desiredDeliveryDate,
         items: src.items.map((it) => ({
@@ -524,14 +521,15 @@ export function BuyerProvider({ children }: { children: ReactNode }) {
         .filter(Boolean) as StockItem[]
       const rfqItems: Omit<RfqItem, 'id' | 'rfqId'>[] = items.map((s) => ({
         stockItemId: s.id,
-        description: `${s.brand} ${s.model} (${s.sku})`,
+        description: `${s.brand} ${s.model}`,
+        sku: s.sku,
         quantity: s.minOrderQty,
         targetPrice: s.buyerPrice ?? s.basePrice,
         currency: s.currency,
       }))
       const title = items.length === 1
-        ? `Заявка: ${items[0].brand} ${items[0].model}`
-        : `Заявка: ${items.length} позиций`
+        ? `Request: ${items[0].brand} ${items[0].model}`
+        : `Request: ${items.length} items`
       return createRfq({
         title,
         items: rfqItems,

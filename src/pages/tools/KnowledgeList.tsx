@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { IconSearch } from '../../components/CabinetIcons'
+import { useSellerLocale } from '../../i18n/SellerLocaleContext'
 import {
   KNOWLEDGE_CATEGORIES,
   getArticlesByCategory,
@@ -8,6 +9,7 @@ import {
 } from '../../data/knowledge'
 
 export default function KnowledgeList() {
+  const { t } = useSellerLocale()
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null)
 
@@ -25,14 +27,14 @@ export default function KnowledgeList() {
 
   return (
     <>
-      <h2 className="text-lg font-semibold text-primary">База знаний</h2>
+      <h2 className="text-lg font-semibold text-primary">{t.tools.knowledge}</h2>
       <p className="mt-2 text-neutral-600 leading-relaxed">
-        Категории и статьи для сотрудников и партнёров (по аналогии с NEXX).
+        {t.tools.knowledgeSubtitle}
       </p>
 
       <div className="mt-6 flex flex-col sm:flex-row gap-4">
         <label className="relative flex-1 max-w-md">
-          <span className="sr-only">Поиск по статьям</span>
+          <span className="sr-only">{t.tools.knowledgeSearch}</span>
           <IconSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none" />
           <input
             type="search"
@@ -41,7 +43,7 @@ export default function KnowledgeList() {
               setSearchQuery(e.target.value)
               setSelectedCategoryId(null)
             }}
-            placeholder="Поиск (Ctrl+K — глобальный поиск)"
+            placeholder={t.tools.knowledgeSearch}
             className="w-full rounded-xl border border-neutral-300 py-2.5 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent"
           />
         </label>
@@ -49,7 +51,7 @@ export default function KnowledgeList() {
 
       {showCategories && (
         <div className="mt-8">
-          <h3 className="text-base font-semibold text-primary mb-3">Категории</h3>
+          <h3 className="text-base font-semibold text-primary mb-3">{t.tools.knowledgeCategories}</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {KNOWLEDGE_CATEGORIES.sort((a, b) => a.order - b.order).map((cat) => {
               const count = getArticlesByCategory(cat.id).length
@@ -66,7 +68,7 @@ export default function KnowledgeList() {
                   }`}
                 >
                   <span className="font-medium text-primary">{cat.title}</span>
-                  <p className="mt-1 text-sm text-neutral-500">Статей: {count}</p>
+                  <p className="mt-1 text-sm text-neutral-500">{t.tools.knowledgeArticlesCount.replace('{{count}}', count.toString())}</p>
                 </button>
               )
             })}
@@ -77,10 +79,10 @@ export default function KnowledgeList() {
       <div className="mt-8">
         <h3 className="text-base font-semibold text-primary mb-3">
           {searchQuery.trim()
-            ? `Найдено: ${articles.length}`
+            ? `${t.tools.knowledgeFound}: ${articles.length}`
             : selectedCategoryId
-              ? 'Статьи в категории'
-              : 'Выберите категорию или введите поиск'}
+              ? t.tools.knowledgeArticlesInCategory
+              : t.tools.knowledgeSelectCategory}
         </h3>
         {articles.length > 0 ? (
           <ul className="space-y-3">
@@ -98,7 +100,7 @@ export default function KnowledgeList() {
           </ul>
         ) : (
           (searchQuery.trim() || selectedCategoryId) && (
-            <p className="text-neutral-500 py-6">Ничего не найдено.</p>
+            <p className="text-neutral-500 py-6">{t.tools.knowledgeNotFound}</p>
           )
         )}
       </div>

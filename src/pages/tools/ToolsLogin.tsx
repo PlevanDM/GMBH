@@ -1,8 +1,10 @@
 import { useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../auth/AuthContext'
+import { useSellerLocale } from '../../i18n/SellerLocaleContext'
 
 export default function ToolsLogin() {
+  const { t } = useSellerLocale()
   const { login } = useAuth()
   const location = useLocation()
   const navigate = useNavigate()
@@ -21,7 +23,7 @@ export default function ToolsLogin() {
     })
     const data = await res.json().catch(() => ({}))
     if (!res.ok) {
-      setError(data.message || 'Ошибка входа. Для демо: пароль 0909.')
+      setError(data.message || t.tools.error)
       return
     }
     login('tools', data.token)
@@ -30,17 +32,17 @@ export default function ToolsLogin() {
 
   return (
     <div className="max-w-md mx-auto py-12">
-      <Link to="/" className="text-sm text-neutral-500 hover:text-primary transition-colors">← На сайт</Link>
-      <h2 className="mt-4 text-2xl font-bold text-primary">Вход в инструменты</h2>
+      <Link to="/" className="text-sm text-neutral-500 hover:text-primary transition-colors">← {t.tools.backToSite}</Link>
+      <h2 className="mt-4 text-2xl font-bold text-primary">{t.tools.loginTitle}</h2>
       <p className="mt-2 text-neutral-600 leading-relaxed">
-        База знаний, справочники NEXX, обновление прайса.
+        {t.tools.loginSubtitle}
       </p>
-      <p className="mt-4 text-xs text-neutral-500">Демо: любой логин, пароль <strong>0909</strong></p>
+      <p className="mt-4 text-xs text-neutral-500">{t.tools.demoHint}</p>
       <form onSubmit={handleSubmit} className="mt-8 p-6 rounded-xl border border-neutral-200 bg-neutral-50 shadow-card space-y-4">
         <input
           value={loginField}
           onChange={(e) => setLoginField(e.target.value)}
-          placeholder="Логин"
+          placeholder={t.tools.loginPlaceholder}
           className="w-full rounded-lg border border-neutral-300 px-3 py-2.5 text-primary"
           required
         />
@@ -48,17 +50,17 @@ export default function ToolsLogin() {
           type="password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          placeholder="Пароль"
+          placeholder={t.tools.passwordPlaceholder}
           className="w-full rounded-lg border border-neutral-300 px-3 py-2.5 text-primary"
           required
         />
         {error && <p className="text-sm text-red-600">{error}</p>}
         <button type="submit" className="btn-primary w-full py-2.5 rounded-lg">
-          Войти
+          {t.tools.loginButton}
         </button>
       </form>
       <p className="mt-8 text-center text-sm text-neutral-500">
-        <Link to="/" className="text-accent hover:underline">На главную</Link>
+        <Link to="/" className="text-accent hover:underline">{t.tools.backToHome}</Link>
       </p>
     </div>
   )

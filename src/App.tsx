@@ -4,6 +4,7 @@ import Layout from './components/Layout'
 import Home from './pages/Home'
 import { ProtectedRoute } from './auth/AuthContext'
 import { BuyerLocaleProvider } from './i18n/BuyerLocaleContext'
+import { SellerLocaleProvider } from './i18n/SellerLocaleContext'
 
 const SecurityManagement = lazy(() => import('./pages/SecurityManagement'))
 const GlobalLogistics = lazy(() => import('./pages/GlobalLogistics'))
@@ -60,8 +61,9 @@ function ScrollToTop() {
 
 export default function App() {
   return (
-    <BuyerLocaleProvider>
-      <ScrollToTop />
+    <SellerLocaleProvider>
+      <BuyerLocaleProvider>
+        <ScrollToTop />
       <Suspense fallback={<PageFallback />}>
         <Routes>
           <Route path="/" element={<Layout />}>
@@ -131,6 +133,7 @@ export default function App() {
           </Route>
         </Routes>
       </Suspense>
-    </BuyerLocaleProvider>
+      </BuyerLocaleProvider>
+    </SellerLocaleProvider>
   )
 }

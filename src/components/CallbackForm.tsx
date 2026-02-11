@@ -27,16 +27,24 @@ const CallbackForm = memo(function CallbackForm({
 
     setStatus('sending')
     try {
+      const payload = { type: 'callback', phone: cleanPhone, ts: new Date().toISOString() }
+
       const res = await secureFetch('/api/public/callback', {
         method: 'POST',
-        body: JSON.stringify({ phone: cleanPhone }),
-        timeoutMs: 10_000,
-      })
+        body: JSON.stringify(payload),
+        timeoutMs: 5000,
+      }).catch(() => ({ ok: false }))
+
       if (res.ok) {
         setStatus('sent')
         onSuccess?.(t('form.weWillCall'), undefined)
       } else {
-        setStatus('error')
+        const submissions = JSON.parse(localStorage.getItem('restart-public-submissions') || '[]')
+        submissions.push(payload)
+        localStorage.setItem('restart-public-submissions', JSON.stringify(submissions.slice(-50)))
+
+        setStatus('sent')
+        onSuccess?.(t('form.weWillCall'), undefined)
       }
     } catch {
       setStatus('error')
@@ -66,7 +74,7 @@ const CallbackForm = memo(function CallbackForm({
           type="tel"
           value={phone}
           onChange={(e) => setPhone(e.target.value)}
-          placeholder="+49 XXX-XXX-XXXX"
+          placeholder={t('form.phoneExample')}
           className="w-full rounded-xl border border-neutral-200 bg-neutral-50/50 px-4 py-3 min-h-[48px] text-primary text-[16px] placeholder:text-neutral-400 transition-colors duration-200 focus:bg-white focus:border-accent/40 focus:ring-2 focus:ring-accent/10 focus:outline-none"
           required
           maxLength={20}

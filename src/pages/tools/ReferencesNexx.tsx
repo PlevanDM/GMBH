@@ -2,21 +2,23 @@
  * Справочники NEXX — перенесённые данные из NEXX-LAST (модели, цены, PMIC, зарядные станции).
  * Блок цен підключено до великих європейських маркетів: Idealo, Geizhals, Google Shopping, Amazon DE.
  */
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { NEXX_POWER_STATIONS, type NexxPowerStation } from '../../data/nexxPowerStations'
 import { NEXX_PMIC_REFERENCE } from '../../data/nexxPmicReference'
+import { useSellerLocale } from '../../i18n/SellerLocaleContext'
 import {
   getProductSearchQuery,
   getMarketplaceLinks,
 } from '../../utils/marketplaceUrls'
 
-const TABS = [
-  { id: 'power', label: 'Зарядні станції та ціни' },
-  { id: 'pmic', label: 'Apple PMIC (мікросхеми)' },
-  { id: 'about', label: 'Про базу NEXX' },
-] as const
-
 export default function ReferencesNexx() {
+  const { t } = useSellerLocale()
+  const TABS = useMemo(() => [
+    { id: 'power', label: t.tools.referencesPower },
+    { id: 'pmic', label: t.tools.referencesPmic },
+    { id: 'about', label: t.tools.referencesAbout },
+  ] as const, [t])
+
   const [tab, setTab] = useState<(typeof TABS)[number]['id']>('power')
 
   return (
@@ -46,6 +48,7 @@ export default function ReferencesNexx() {
 }
 
 function PowerStationsTab() {
+  const { t } = useSellerLocale()
   const byCategory = NEXX_POWER_STATIONS.reduce<Record<string, NexxPowerStation[]>>((acc, item) => {
     const c = item.category || 'Other'
     if (!acc[c]) acc[c] = []
@@ -57,9 +60,8 @@ function PowerStationsTab() {
   return (
     <div className="space-y-6">
       <p className="text-neutral-600 text-sm">
-        Ціни на зарядні станції та аксесуари (EcoFlow, BLUETTI, DJI, Jackery). Орієнтовні € з{' '}
+        {t.tools.referencesPowerDesc}{' '}
         <a href="https://github.com/PlevanDM/NEXX-LAST" target="_blank" rel="noopener noreferrer" className="text-primary underline">NEXX-LAST</a>.
-        Актуальні ціни по моделях можна переглянути на великих європейських маркетах — використовуйте кнопки «Ціни на ринку».
       </p>
       {categories.map((cat) => (
         <section key={cat}>
@@ -68,11 +70,11 @@ function PowerStationsTab() {
             <table className="min-w-full text-sm">
               <thead className="bg-neutral-100">
                 <tr>
-                  <th className="px-4 py-2 text-left font-medium">Бренд</th>
-                  <th className="px-4 py-2 text-left font-medium">Назва / модель</th>
-                  <th className="px-4 py-2 text-right font-medium">€ (орієнт.)</th>
-                  <th className="px-4 py-2 text-left font-medium">Наші пропозиції</th>
-                  <th className="px-4 py-2 text-left font-medium">Ціни на ринку Європи</th>
+                  <th className="px-4 py-2 text-left font-medium">{t.tools.referencesBrand}</th>
+                  <th className="px-4 py-2 text-left font-medium">{t.tools.referencesModel}</th>
+                  <th className="px-4 py-2 text-right font-medium">{t.tools.referencesApprox}</th>
+                  <th className="px-4 py-2 text-left font-medium">{t.tools.referencesOffers}</th>
+                  <th className="px-4 py-2 text-left font-medium">{t.tools.referencesMarketPrices}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-neutral-100">
@@ -86,7 +88,7 @@ function PowerStationsTab() {
                         {row.name}
                         {row.specs && <span className="text-neutral-500 block text-xs">{row.specs}</span>}
                       </td>
-                      <td className="px-4 py-2 text-right">{row.price_eu} €</td>
+                      <td className="px-4 py-2 text-right">{row.price_eu?.toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })}</td>
                       <td className="px-4 py-2">
                         <ul className="space-y-0.5">
                           {row.offers.slice(0, 3).map((o, i) => (
@@ -106,7 +108,7 @@ function PowerStationsTab() {
                               target="_blank"
                               rel="noopener noreferrer"
                               className="inline-block rounded-md border border-neutral-300 bg-white px-2.5 py-1 text-xs font-medium text-neutral-700 hover:bg-accent hover:text-white hover:border-accent transition-colors"
-                              title={`Переглянути ціни на ${m.label}`}
+                              title={`${t.scout.resultsFor} ${m.label}`}
                             >
                               {m.label}
                             </a>
@@ -126,17 +128,18 @@ function PowerStationsTab() {
 }
 
 function PmicTab() {
+  const { t } = useSellerLocale()
   const series = Object.keys(NEXX_PMIC_REFERENCE.pmicBySeries).sort().reverse()
   const symptoms = Object.entries(NEXX_PMIC_REFERENCE.diagnosticSymptoms)
 
   return (
     <div className="space-y-8">
       <p className="text-neutral-600 text-sm">
-        Справочник PMIC та мікросхем Apple iPhone. Оновлено: {NEXX_PMIC_REFERENCE.lastUpdated}.
+        {t.tools.referencesPmic} Apple iPhone. {t.tools.knowledgeUpdated}: {NEXX_PMIC_REFERENCE.lastUpdated}.
       </p>
 
       <section>
-        <h2 className="text-lg font-semibold text-neutral-800 mb-3">PMIC по серіях</h2>
+        <h2 className="text-lg font-semibold text-neutral-800 mb-3">{t.tools.referencesPmicSeries}</h2>
         <div className="overflow-x-auto rounded-lg border border-neutral-200">
           <table className="min-w-full text-sm">
             <thead className="bg-neutral-100">
@@ -171,7 +174,7 @@ function PmicTab() {
       </section>
 
       <section>
-        <h2 className="text-lg font-semibold text-neutral-800 mb-3">Діагностика (симптом → перевірка)</h2>
+        <h2 className="text-lg font-semibold text-neutral-800 mb-3">{t.tools.referencesDiagnosticTitle}</h2>
         <ul className="space-y-2 rounded-lg border border-neutral-200 p-4 bg-neutral-50">
           {symptoms.map(([key, value]) => (
             <li key={key}>
@@ -186,10 +189,11 @@ function PmicTab() {
 }
 
 function AboutTab() {
+  const { t } = useSellerLocale()
   return (
     <div className="prose prose-neutral max-w-none space-y-4">
       <p>
-        База знань та довідники перенесені з проекту{' '}
+        {t.tools.referencesAbout}{' '}
         <a href="https://github.com/PlevanDM/NEXX-LAST" target="_blank" rel="noopener noreferrer">
           NEXX-LAST
         </a>{' '}

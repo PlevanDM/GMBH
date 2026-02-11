@@ -22,9 +22,9 @@ type ViewMode = 'table' | 'grid'
 
 /* ────────── helpers ────────── */
 
-function formatPrice(amount: number, currency: StockCurrency): string {
-  const symbols: Record<StockCurrency, string> = { EUR: '€', UAH: 'грн', USD: '$' }
-  return `${amount.toLocaleString('ru-RU')} ${symbols[currency] ?? currency}`
+function formatPrice(amount: number, currency: StockCurrency, locale: string): string {
+  const symbols: Record<StockCurrency, string> = { EUR: '€', UAH: locale === 'uk' || locale === 'ru' ? 'грн' : 'UAH', USD: '$' }
+  return `${amount.toLocaleString(locale)} ${symbols[currency] ?? currency}`
 }
 
 function formatArrivalDate(iso: string): string {
@@ -62,6 +62,7 @@ function StockGridCard({
   onOpenDetail,
   conditionLabels,
   t,
+  locale,
 }: {
   s: StockItem
   index: number
@@ -70,6 +71,7 @@ function StockGridCard({
   onOpenDetail: () => void
   conditionLabels: Record<string, string>
   t: ReturnType<typeof useBuyerLocale>['t']
+  locale: string
 }) {
   const imageUrl = s.images[0] || getDemoImageUrl(index, s.brand, s.category)
 
@@ -151,7 +153,7 @@ function StockGridCard({
           </div>
           <div className="text-right">
             {s.buyerPrice != null ? (
-              <span className="font-bold text-sm text-primary">{formatPrice(s.buyerPrice, s.currency)}</span>
+              <span className="font-bold text-sm text-primary">{formatPrice(s.buyerPrice, s.currency, locale)}</span>
             ) : (
               <span className="text-xs text-neutral-400 italic">{t.stock.priceOnRequest}</span>
             )}
@@ -173,8 +175,6 @@ function ViewToggle({ mode, onChange }: { mode: ViewMode; onChange: (m: ViewMode
         className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
           mode === 'table' ? 'bg-primary text-white shadow-sm' : 'text-neutral-600 hover:bg-neutral-50'
         }`}
-        title="Table view"
-        aria-label="Table view"
       >
         {/* Table icon */}
         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -187,8 +187,6 @@ function ViewToggle({ mode, onChange }: { mode: ViewMode; onChange: (m: ViewMode
         className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
           mode === 'grid' ? 'bg-primary text-white shadow-sm' : 'text-neutral-600 hover:bg-neutral-50'
         }`}
-        title="Grid view"
-        aria-label="Grid view"
       >
         {/* Grid icon */}
         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -219,7 +217,7 @@ function useIsSmallScreen(breakpoint = 1024) {
 
 export default function BuyerStock() {
   const navigate = useNavigate()
-  const { t } = useBuyerLocale()
+  const { t, locale } = useBuyerLocale()
   const { getAvailable, getBatchById } = useInventory()
   const { company, bulkQuoteFromStock } = useBuyer()
   const inventoryItems = getAvailable()
@@ -310,8 +308,14 @@ export default function BuyerStock() {
   const handleSubmitQuoteRequest = () => {
     if (selectedIds.size === 0) return
     const items = stock.filter((s) => selectedIds.has(s.id))
-    const contactLabel = { email: 'Email', phone: 'Phone', whatsapp: 'WhatsApp', telegram: 'Telegram' }[quoteContactMethod]
-    const fullComment = [quoteComment, `Preferred contact: ${contactLabel}`].filter(Boolean).join(' | ')
+    const contactLabels = {
+      email: t.quotePanel.contactEmail,
+      phone: t.quotePanel.contactPhone,
+      whatsapp: t.quotePanel.contactWhatsApp,
+      telegram: t.quotePanel.contactTelegram,
+    }
+    const contactLabel = contactLabels[quoteContactMethod]
+    const fullComment = [quoteComment, `${t.quotePanel.contactMethodLabel}: ${contactLabel}`].filter(Boolean).join(' | ')
     const rfq = bulkQuoteFromStock(items.map((s) => s.id), items, {
       comment: fullComment || null,
       desiredDeliveryDate: quoteDeliveryDate || null,
@@ -390,14 +394,19 @@ export default function BuyerStock() {
             </label>
             {selectedIds.size > 0 && (
               <span className="text-xs sm:text-sm text-neutral-600">
-                {t.stock.selected}: <strong>{selectedIds.size}</strong> {t.stock.totalAmount} ~<strong>{selectedSum.toLocaleString('ru-RU')} €</strong>
+                {t.stock.selected}: <strong>{selectedIds.size}</strong> {t.stock.totalAmount} ~<strong>{selectedSum.toLocaleString(locale, { style: 'currency', currency: 'EUR' })}</strong>
               </span>
             )}
           </div>
           <div className="flex items-center gap-2 sm:gap-3">
             {/* Hide view toggle on tablet/mobile — grid is forced */}
             {!isTabletOrMobile && <ViewToggle mode={viewMode} onChange={setViewModeAndSave} />}
-            <button type="button" disabled={selectedIds.size === 0} className="rounded-lg bg-accent px-3 sm:px-5 py-2 text-xs sm:text-sm font-medium text-white hover:bg-accent-hover disabled:opacity-50 disabled:cursor-not-allowed transition-colors whitespace-nowrap min-h-[40px]">
+            <button
+              type="button"
+              disabled={selectedIds.size === 0}
+              onClick={handleSubmitQuoteRequest}
+              className="rounded-lg bg-accent px-3 sm:px-5 py-2 text-xs sm:text-sm font-medium text-white hover:bg-accent-hover disabled:opacity-50 disabled:cursor-not-allowed transition-colors whitespace-nowrap min-h-[40px]"
+            >
               {t.stock.addToRequest}
             </button>
           </div>
@@ -409,12 +418,12 @@ export default function BuyerStock() {
         <aside className="fixed right-0 top-[72px] bottom-0 w-full max-w-[380px] bg-white shadow-[-2px_0_16px_rgba(0,0,0,0.1)] flex flex-col z-[1000] md:max-w-[380px] max-md:inset-x-0 max-md:top-auto max-md:h-[60vh] max-md:rounded-t-2xl">
           <div className="flex items-center justify-between px-5 py-4 border-b border-neutral-200">
             <h3 className="text-lg font-semibold text-primary">{t.quotePanel.title}</h3>
-            <button type="button" onClick={clearSelection} className="p-2 text-neutral-500 hover:text-neutral-800 rounded-lg" aria-label="Close">&#10005;</button>
+            <button type="button" onClick={clearSelection} className="p-2 text-neutral-500 hover:text-neutral-800 rounded-lg" aria-label={t.cancel}>&#10005;</button>
           </div>
           <div className="flex-1 overflow-y-auto px-5 py-4">
             <div className="rounded-lg bg-neutral-100 px-3 py-2.5 mb-4 text-sm text-neutral-700">
               <strong>{t.quotePanel.selected}: {selectedItems.length} {t.quotePanel.items}</strong>
-              {selectedSum > 0 && <span> {t.quotePanel.total} ~{selectedSum.toLocaleString('ru-RU')} €</span>}
+              {selectedSum > 0 && <span> {t.quotePanel.total} ~{selectedSum.toLocaleString(locale, { style: 'currency', currency: 'EUR' })}</span>}
             </div>
             <ul className="list-none p-0 m-0 mb-5 space-y-2 text-[13px] border-b border-neutral-100 pb-4">
               {selectedItems.slice(0, 3).map((item) => (
@@ -481,6 +490,7 @@ export default function BuyerStock() {
                 onOpenDetail={() => setDetailItem({ item: s, index: page * PAGE_SIZE + idx })}
                 conditionLabels={conditionLabels}
                 t={t}
+                locale={locale}
               />
             ))}
           </div>
@@ -554,7 +564,7 @@ export default function BuyerStock() {
                         <td className="px-2 py-2 text-neutral-600 text-nowrap">{arrivalDate}</td>
                         <td className="px-2 py-2 text-right text-nowrap">
                           {s.buyerPrice != null ? (
-                            <span className="font-semibold text-neutral-900">{formatPrice(s.buyerPrice, s.currency)}</span>
+                            <span className="font-semibold text-neutral-900">{formatPrice(s.buyerPrice, s.currency, locale)}</span>
                           ) : (
                             <span className="text-neutral-400 italic font-normal">{t.stock.priceOnRequest}</span>
                           )}

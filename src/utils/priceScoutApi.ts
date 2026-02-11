@@ -18,7 +18,7 @@
  *  - Cross-validation with estimate engine
  */
 
-import { quickEstimate, crossValidate, type PriceEstimate } from './priceEstimator'
+import { quickEstimate, crossValidate, type PriceEstimate, type ValuationType } from './priceEstimator'
 
 /* ── Types ── */
 export interface MarketPrice {
@@ -47,6 +47,7 @@ export interface PriceScoutResult {
   query: string
   brand: string
   model: string
+  valuationType: ValuationType
   sources: MarketPrice[]
   /** Per-source fetch status for UI feedback */
   sourceStatuses: SourceStatus[]
@@ -86,9 +87,10 @@ function getCached(query: string): PriceScoutResult | null {
 function setCache(query: string, result: PriceScoutResult) {
   const cache = getCache()
   const keys = Object.keys(cache)
-  if (keys.length > 50) {
-    const oldest = keys.sort((a, b) => cache[a].ts - cache[b].ts).slice(0, 10)
-    for (const k of oldest) delete cache[k]
+  if (keys.length >= 50) {
+    const sorted = keys.sort((a, b) => cache[a].ts - cache[b].ts)
+    const toRemove = sorted.slice(0, keys.length - 40) // Keep only latest 40
+    for (const k of toRemove) delete cache[k]
   }
   cache[query.toLowerCase()] = { result, ts: Date.now() }
   sessionStorage.setItem(CACHE_KEY, JSON.stringify(cache))
@@ -128,13 +130,14 @@ function addToHistory(query: string, result: PriceScoutResult) {
     if (all[key].length > 20) all[key] = all[key].slice(-20)
     // Keep max 100 queries
     const qKeys = Object.keys(all)
-    if (qKeys.length > 100) {
+    if (qKeys.length >= 100) {
       const sortedKeys = qKeys.sort((a, b) => {
         const lastA = all[a][all[a].length - 1]?.ts || 0
         const lastB = all[b][all[b].length - 1]?.ts || 0
         return lastA - lastB
       })
-      for (const k of sortedKeys.slice(0, 20)) delete all[k]
+      const toRemove = sortedKeys.slice(0, qKeys.length - 80) // Keep latest 80
+      for (const k of toRemove) delete all[k]
     }
     localStorage.setItem(HISTORY_KEY, JSON.stringify(all))
   } catch { /* ignore */ }
@@ -574,18 +577,20 @@ export async function fetchPriceScout(
   brand: string,
   model: string,
   query?: string,
-  options?: { skipCache?: boolean },
+  options?: { skipCache?: boolean; valuationType?: ValuationType },
 ): Promise<PriceScoutResult> {
   const searchQuery = query || `${brand} ${model}`.trim()
+  const vType = options?.valuationType || 'retail'
+  const cacheKey = `${vType}:${searchQuery}`
 
   // Check cache
   if (!options?.skipCache) {
-    const cached = getCached(searchQuery)
+    const cached = getCached(cacheKey)
     if (cached) return cached
   }
 
   // Get local estimate (always works, needed for relevance filtering)
-  const estimate = quickEstimate(brand, model)
+  const estimate = quickEstimate(brand, model, vType)
 
   // Fetch from all 6 sources in parallel
   const SOURCE_META = [
@@ -627,6 +632,7 @@ export async function fetchPriceScout(
     query: searchQuery,
     brand,
     model,
+    valuationType: vType,
     sources,
     sourceStatuses,
     estimate,
@@ -636,7 +642,7 @@ export async function fetchPriceScout(
   }
 
   // Cache + history
-  setCache(searchQuery, result)
+  setCache(cacheKey, result)
   addToHistory(searchQuery, result)
 
   return result

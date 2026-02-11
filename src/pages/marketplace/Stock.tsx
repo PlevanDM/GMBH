@@ -1,6 +1,6 @@
 import { Link, useNavigate } from 'react-router-dom'
-import { useTranslation } from 'react-i18next'
 import PageHero from '../../components/PageHero'
+import { useBuyerLocale } from '../../i18n/BuyerLocaleContext'
 import { useInventory } from '../../store/inventoryStore'
 import { suggestBrandFromDescription } from '../../data/catalogs'
 import {
@@ -16,6 +16,7 @@ const PREVIEW_LIMIT = 12
 
 /** Lightweight preview card for the public stock page — with real photo */
 function PreviewCard({ it, index, onClick }: { it: InventoryItem; index: number; onClick: () => void }) {
+  const { t } = useBuyerLocale()
   const brand = it.brand || suggestBrandFromDescription(it.description)
   const ram = it.ram_raw ?? (it.laptopRamGb != null ? `${it.laptopRamGb} GB` : undefined)
   const imageUrl = it.imageUrl || getDemoImageUrl(index, brand, it.category)
@@ -74,7 +75,7 @@ function PreviewCard({ it, index, onClick }: { it: InventoryItem; index: number;
             {it.quantity != null && it.quantity > 0 && (
               <span className="inline-flex items-center gap-1">
                 <IconPackage className="h-3.5 w-3.5 shrink-0 text-neutral-400" />
-                {it.quantity} шт.
+                {it.quantity} {t.publicStock.pcs}
               </span>
             )}
             {it.location && (
@@ -84,7 +85,7 @@ function PreviewCard({ it, index, onClick }: { it: InventoryItem; index: number;
               </span>
             )}
           </div>
-          <span className="text-[11px] text-neutral-400 italic">Ціна за запитом</span>
+          <span className="text-[11px] text-neutral-400 italic">{t.publicStock.priceOnRequest}</span>
         </div>
       </div>
     </div>
@@ -92,7 +93,7 @@ function PreviewCard({ it, index, onClick }: { it: InventoryItem; index: number;
 }
 
 export default function Stock() {
-  const { t } = useTranslation('common')
+  const { t } = useBuyerLocale()
   const navigate = useNavigate()
   const { getAvailable } = useInventory()
   const items = getAvailable()
@@ -102,8 +103,8 @@ export default function Stock() {
   return (
     <>
       <PageHero
-        title={t('nav.solutions') === 'Solutions' ? 'B2B Stock — Equipment Available' : 'Вітрина — Наявність обладнання'}
-        subtitle={items.length > 0 ? `${items.length} позицій в наявності` : undefined}
+        title={t.publicStock.title}
+        subtitle={items.length > 0 ? t.publicStock.subtitle.replace('{{count}}', items.length.toString()) : undefined}
       />
       <section className="py-12 lg:py-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -111,20 +112,20 @@ export default function Stock() {
           {/* CTA banner */}
           <div className="rounded-xl sm:rounded-2xl bg-gradient-to-r from-primary to-primary-light p-4 sm:p-6 lg:p-8 text-white flex flex-col sm:flex-row sm:flex-wrap items-start sm:items-center justify-between gap-4 sm:gap-6">
             <div className="min-w-0 flex-1">
-              <h2 className="text-base sm:text-xl font-bold">Оптовим покупцям — повний доступ</h2>
+              <h2 className="text-base sm:text-xl font-bold">{t.publicStock.ctaTitle}</h2>
               <p className="mt-1 text-white/80 text-xs sm:text-sm max-w-lg">
-                У кабінеті покупця: фільтри, персональні ціни, заявки, чат з менеджером, історія замовлень.
+                {t.publicStock.ctaDesc}
               </p>
             </div>
             <Link to="/buyer" className="shrink-0 inline-flex items-center justify-center gap-2 rounded-lg bg-white px-4 sm:px-6 py-2.5 sm:py-3 text-sm font-semibold text-primary hover:bg-neutral-50 transition-colors shadow-lg w-full sm:w-auto min-h-[44px]">
-              Увійти в кабінет покупця →
+              {t.publicStock.ctaButton}
             </Link>
           </div>
 
           {items.length === 0 ? (
             <div className="mt-10 rounded-xl border-2 border-dashed border-neutral-200 bg-neutral-50 p-12 text-center text-neutral-500">
-              <p className="font-medium text-neutral-600">Позицій поки немає</p>
-              <p className="mt-1 text-sm">Позиції з'являться після оновлення прайсу.</p>
+              <p className="font-medium text-neutral-600">{t.publicStock.noItems}</p>
+              <p className="mt-1 text-sm">{t.publicStock.noItemsDesc}</p>
             </div>
           ) : (
             <>
@@ -137,10 +138,10 @@ export default function Stock() {
               {hasMore && (
                 <div className="mt-8 text-center">
                   <p className="text-sm text-neutral-500 mb-4">
-                    Показано {preview.length} з {items.length} позицій. Для повного доступу з фільтрами та цінами:
+                    {t.publicStock.previewInfo.replace('{{count}}', preview.length.toString()).replace('{{total}}', items.length.toString())}
                   </p>
                   <Link to="/buyer" className="btn-primary inline-flex items-center gap-2">
-                    Відкрити повну вітрину в кабінеті →
+                    {t.publicStock.openFull}
                   </Link>
                 </div>
               )}
@@ -148,7 +149,7 @@ export default function Stock() {
               {!hasMore && (
                 <div className="mt-8 text-center">
                   <Link to="/buyer" className="btn-primary inline-flex items-center gap-2">
-                    Увійти в кабінет для запиту ціни →
+                    {t.publicStock.loginForPrice}
                   </Link>
                 </div>
               )}

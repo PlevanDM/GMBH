@@ -1,4 +1,4 @@
-import { useEffect, useCallback } from 'react'
+import { useEffect, useCallback, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { X } from 'lucide-react'
@@ -8,13 +8,7 @@ import ProductShowcase, {
 import type { StockItem, StockCurrency } from '../types/buyer'
 import { getDemoImageUrl } from '../data/demoImages'
 import { getLocationDisplayLabel } from '../data/catalogs'
-
-const CONDITION_LABELS: Record<string, string> = {
-  NEW: 'New',
-  USED: 'Used',
-  REFURBISHED: 'Refurbished',
-  FOR_PARTS: 'For Parts',
-}
+import { useBuyerLocale } from '../i18n/BuyerLocaleContext'
 
 const CONDITION_COLORS: Record<string, string> = {
   NEW: 'bg-emerald-50 text-emerald-700 border border-emerald-200',
@@ -60,6 +54,8 @@ export default function ProductDetailModal({
   onAddToQuote,
   ctaLabel,
 }: ProductDetailModalProps) {
+  const { t } = useBuyerLocale()
+
   const handleEscape = useCallback(
     (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose()
@@ -84,7 +80,12 @@ export default function ProductDetailModal({
   const brandKey = item.brand || '_default'
   const gradient = GRADIENT_BY_BRAND[brandKey] || GRADIENT_BY_BRAND._default
   const glow = GLOW_BY_BRAND[brandKey] || GLOW_BY_BRAND._default
-  const conditionLabel = CONDITION_LABELS[item.condition] ?? item.condition
+
+  const conditionLabel = useMemo(() => {
+    const labels = t.stock.conditionValues as Record<string, string>
+    return labels[item.condition] ?? item.condition
+  }, [t, item.condition])
+
   const conditionColor = CONDITION_COLORS[item.condition] ?? undefined
 
   const priceStr = item.buyerPrice != null
@@ -151,7 +152,9 @@ export default function ProductDetailModal({
             gradientClasses={gradient}
             glowColor={glow}
             onRequestQuote={onAddToQuote ? () => onAddToQuote(item.id) : undefined}
-            ctaLabel={ctaLabel || 'Add to Quote'}
+            ctaLabel={ctaLabel || t.stock.addToRequest}
+            priceOnRequestLabel={t.stock.priceOnRequest}
+            backLabel={t.back}
           />
         </motion.div>
       </motion.div>
