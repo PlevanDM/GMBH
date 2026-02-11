@@ -45,7 +45,7 @@ const DEFAULT_COMPANY_ID = 'company-1'
 const DEFAULT_USER_ID = 'user-1'
 
 function loadJson<T>(key: string, fallback: T): T {
-  return ds.getItem<T>(key) || fallback
+  return ds.getItem<T>(key, fallback)
 }
 
 function saveJson(key: string, value: unknown) {
@@ -139,7 +139,7 @@ export function buildStockFromInventory(
         minOrderQty: 1,
         lotSize: null,
         images: [getDemoImageUrl(i, brand, it.category)],
-        labels: hasMyPrice ? ['Персональная цена'] : [],
+        labels: hasMyPrice ? ['Personal price'] : [],
         updatedAt: it.updatedAt,
         processor: it.processor,
         ram,
@@ -376,7 +376,7 @@ export function BuyerProvider({ children }: { children: ReactNode }) {
 
   const approveRfq = useCallback(
     (id: string) => {
-      const next = rfqs.map((r) =>
+      const next = rfqs.map((r: Rfq) =>
         r.id === id ? { ...r, status: 'APPROVED_BY_BUYER' as const, updatedAt: new Date().toISOString() } : r
       )
       setRfqs(next)
@@ -495,7 +495,7 @@ export function BuyerProvider({ children }: { children: ReactNode }) {
       const src = rfqs.find((r) => r.id === id)
       if (!src) throw new Error('RFQ not found')
       return createRfq({
-        title: `${src.title} (копия)`,
+        title: `${src.title} (copy)`,
         comment: src.comment,
         desiredDeliveryDate: src.desiredDeliveryDate,
         items: src.items.map((it) => ({
@@ -527,8 +527,8 @@ export function BuyerProvider({ children }: { children: ReactNode }) {
         currency: s.currency,
       }))
       const title = items.length === 1
-        ? `Заявка: ${items[0].brand} ${items[0].model}`
-        : `Заявка: ${items.length} позиций`
+        ? `Request: ${items[0].brand} ${items[0].model}`
+        : `Request: ${items.length} items`
       return createRfq({
         title,
         items: rfqItems,

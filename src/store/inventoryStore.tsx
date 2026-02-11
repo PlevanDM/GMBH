@@ -25,7 +25,7 @@ interface InventoryMeta {
 }
 
 function loadBatches(): InventoryBatch[] {
-  return ds.getItem<InventoryBatch[]>(STORAGE_BATCHES_KEY) || []
+  return ds.getItem<InventoryBatch[]>(STORAGE_BATCHES_KEY, [])
 }
 
 function saveBatches(batches: InventoryBatch[]) {
@@ -33,8 +33,8 @@ function saveBatches(batches: InventoryBatch[]) {
 }
 
 function loadFromStorage(): { items: InventoryItem[]; meta: InventoryMeta; batches: InventoryBatch[] } {
-  const items: InventoryItem[] = ds.getItem<InventoryItem[]>(STORAGE_KEY) || []
-  const meta: InventoryMeta = ds.getItem<InventoryMeta>(STORAGE_META_KEY) || { lastUpdated: null }
+  const items: InventoryItem[] = ds.getItem<InventoryItem[]>(STORAGE_KEY, [])
+  const meta: InventoryMeta = ds.getItem<InventoryMeta>(STORAGE_META_KEY, { lastUpdated: null })
   const batches = loadBatches()
   const batchIds = new Set(batches.map((b) => b.id))
   const cleaned = items.map((it) => (it.batchId && !batchIds.has(it.batchId) ? { ...it, batchId: undefined } : it))
@@ -244,8 +244,8 @@ function LoadSeedIfEmpty() {
   const { items, replaceItems } = useInventory()
   useEffect(() => {
     // Check seed version — re-seed if outdated or empty
-    const storedVersion = Number(ds.getItem(SEED_VERSION_KEY)) || 0
-    const userCleared = ds.getItem(STORAGE_CLEARED_FLAG) === '1'
+    const storedVersion = Number(ds.getItem<string>(SEED_VERSION_KEY, '0')) || 0
+    const userCleared = ds.getItem<string>(STORAGE_CLEARED_FLAG, '0') === '1'
 
     const needReseed = !userCleared && (items.length === 0 || storedVersion < SEED_VERSION)
 

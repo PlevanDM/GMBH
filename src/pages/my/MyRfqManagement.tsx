@@ -3,17 +3,7 @@ import { useBuyer } from '../../store/buyerStore'
 import { IconFileText } from '../../components/CabinetIcons'
 import type { Rfq, RfqStatus } from '../../types/buyer'
 import { exportRfqToExcel } from '../../utils/exportRfq'
-
-const STATUS_LABELS: Record<RfqStatus, string> = {
-  DRAFT: 'Черновик',
-  SENT: 'Отправлен',
-  UNDER_REVIEW: 'На рассмотрении',
-  QUOTED: 'Предложение отправлено',
-  APPROVED_BY_BUYER: 'Утверждён покупателем',
-  REJECTED_BY_BUYER: 'Отклонён покупателем',
-  CLOSED: 'Закрыт',
-  CANCELLED: 'Отменён',
-}
+import { useSellerLocale } from '../../i18n/SellerLocaleContext'
 
 const STATUS_STYLES: Record<RfqStatus, string> = {
   DRAFT: 'bg-neutral-100 text-neutral-700',
@@ -26,38 +16,40 @@ const STATUS_STYLES: Record<RfqStatus, string> = {
   CANCELLED: 'bg-neutral-100 text-neutral-500',
 }
 
-/** Available seller actions per status */
-function getSellerActions(status: RfqStatus): { label: string; action: string; style: string }[] {
-  switch (status) {
-    case 'SENT':
-      return [
-        { label: 'Взять в работу', action: 'review', style: 'bg-amber-500 hover:bg-amber-600 text-white' },
-        { label: 'Отправить предложение', action: 'quote', style: 'bg-green-600 hover:bg-green-700 text-white' },
-      ]
-    case 'UNDER_REVIEW':
-      return [
-        { label: 'Отправить предложение', action: 'quote', style: 'bg-green-600 hover:bg-green-700 text-white' },
-        { label: 'Закрыть', action: 'close', style: 'bg-neutral-500 hover:bg-neutral-600 text-white' },
-      ]
-    case 'QUOTED':
-      return [
-        { label: 'Закрыть', action: 'close', style: 'bg-neutral-500 hover:bg-neutral-600 text-white' },
-      ]
-    case 'APPROVED_BY_BUYER':
-      return [
-        { label: 'Закрыть', action: 'close', style: 'bg-neutral-500 hover:bg-neutral-600 text-white' },
-      ]
-    default:
-      return []
-  }
-}
 
 const ALL_STATUSES: RfqStatus[] = ['DRAFT', 'SENT', 'UNDER_REVIEW', 'QUOTED', 'APPROVED_BY_BUYER', 'REJECTED_BY_BUYER', 'CLOSED', 'CANCELLED']
 const PAGE_SIZE = 10
 
 export default function MyRfqManagement() {
+  const { t, locale } = useSellerLocale()
   const buyer = useBuyer()
   const { rfqs } = buyer
+
+  /** Available seller actions per status */
+  const getSellerActions = (status: RfqStatus): { label: string; action: string; style: string }[] => {
+    switch (status) {
+      case 'SENT':
+        return [
+          { label: t.rfq.actions.review, action: 'review', style: 'bg-amber-500 hover:bg-amber-600 text-white' },
+          { label: t.rfq.actions.quote, action: 'quote', style: 'bg-green-600 hover:bg-green-700 text-white' },
+        ]
+      case 'UNDER_REVIEW':
+        return [
+          { label: t.rfq.actions.quote, action: 'quote', style: 'bg-green-600 hover:bg-green-700 text-white' },
+          { label: t.rfq.actions.close, action: 'close', style: 'bg-neutral-500 hover:bg-neutral-600 text-white' },
+        ]
+      case 'QUOTED':
+        return [
+          { label: t.rfq.actions.close, action: 'close', style: 'bg-neutral-500 hover:bg-neutral-600 text-white' },
+        ]
+      case 'APPROVED_BY_BUYER':
+        return [
+          { label: t.rfq.actions.close, action: 'close', style: 'bg-neutral-500 hover:bg-neutral-600 text-white' },
+        ]
+      default:
+        return []
+    }
+  }
   const [statusFilter, setStatusFilter] = useState<RfqStatus | 'all'>('all')
   const [search, setSearch] = useState('')
   const [expandedId, setExpandedId] = useState<string | null>(null)
@@ -90,7 +82,7 @@ export default function MyRfqManagement() {
   }, [rfqs])
 
   const handleAction = (rfq: Rfq, action: string) => {
-    const confirmMsg = `Изменить статус запроса "${rfq.title}"?`
+    const confirmMsg = t.rfq.actions.confirm.replace('{{title}}', rfq.title)
     if (!window.confirm(confirmMsg)) return
 
     switch (action) {
@@ -107,7 +99,7 @@ export default function MyRfqManagement() {
         buyer.cancelRfq(rfq.id)
         break
     }
-    setActionFeedback(`Статус запроса "${rfq.title}" обновлён.`)
+    setActionFeedback(t.rfq.actions.feedback.replace('{{title}}', rfq.title))
     setTimeout(() => setActionFeedback(null), 3000)
   }
 
@@ -116,10 +108,10 @@ export default function MyRfqManagement() {
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h2 className="flex items-center gap-2 text-lg font-semibold text-primary">
-            <IconFileText className="shrink-0" /> Управление заявками
+            <IconFileText className="shrink-0" /> {t.rfq.title}
           </h2>
           <p className="mt-1 text-neutral-600 text-sm">
-            Все запросы от покупателей. Обрабатывайте, отвечайте, меняйте статусы.
+            {t.rfq.subtitle}
           </p>
         </div>
       </div>
@@ -133,10 +125,10 @@ export default function MyRfqManagement() {
 
       {/* Stats */}
       <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <MiniStat label="Всего" value={stats.total} />
-        <MiniStat label="Ожидают" value={stats.pending} accent={stats.pending > 0} />
-        <MiniStat label="Предложения" value={stats.quoted} />
-        <MiniStat label="Утверждены" value={stats.approved} />
+        <MiniStat label={t.rfq.stats.total} value={stats.total} />
+        <MiniStat label={t.rfq.stats.pending} value={stats.pending} accent={stats.pending > 0} />
+        <MiniStat label={t.rfq.stats.quoted} value={stats.quoted} />
+        <MiniStat label={t.rfq.stats.approved} value={stats.approved} />
       </div>
 
       {/* Search + Filter */}
@@ -145,20 +137,20 @@ export default function MyRfqManagement() {
           type="search"
           value={search}
           onChange={(e) => { setSearch(e.target.value); setPage(0) }}
-          placeholder="Поиск по названию, ID, комментарию..."
+          placeholder={t.rfq.filters.searchPlaceholder}
           className="flex-1 min-w-0 max-w-md rounded-lg border border-neutral-300 px-4 py-2.5 text-sm"
         />
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-sm text-neutral-600 shrink-0">Статус:</span>
+          <span className="text-sm text-neutral-600 shrink-0">{t.rfq.filters.status}</span>
           <button type="button" onClick={() => { setStatusFilter('all'); setPage(0) }} className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${statusFilter === 'all' ? 'bg-primary text-white' : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'}`}>
-            Все ({rfqs.length})
+            {t.rfq.filters.all} ({rfqs.length})
           </button>
           {ALL_STATUSES.map((s) => {
             const count = rfqs.filter((r) => r.status === s).length
             if (count === 0) return null
             return (
               <button key={s} type="button" onClick={() => { setStatusFilter(s); setPage(0) }} className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${statusFilter === s ? 'ring-2 ring-primary ring-offset-1 bg-white' : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'}`}>
-                {STATUS_LABELS[s]} ({count})
+                {t.rfq.statuses[s]} ({count})
               </button>
             )
           })}
@@ -168,8 +160,8 @@ export default function MyRfqManagement() {
       {/* Table */}
       {filtered.length === 0 ? (
         <div className="mt-8 rounded-xl border-2 border-dashed border-neutral-200 bg-neutral-50 p-10 text-center">
-          <p className="text-neutral-600 font-medium">Заявок пока нет.</p>
-          <p className="mt-1 text-sm text-neutral-500">Покупатели создадут запросы через витрину после загрузки прайса.</p>
+          <p className="text-neutral-600 font-medium">{t.rfq.filters.noRfqs}</p>
+          <p className="mt-1 text-sm text-neutral-500">{t.rfq.filters.noRfqsDesc}</p>
         </div>
       ) : (
         <>
@@ -177,11 +169,11 @@ export default function MyRfqManagement() {
             <table className="w-full min-w-[700px] text-left text-sm">
               <thead>
                 <tr className="border-b border-neutral-200 bg-neutral-50">
-                  <th className="px-4 py-3 font-semibold text-neutral-700">Запрос</th>
-                  <th className="px-4 py-3 font-semibold text-neutral-700">Дата</th>
-                  <th className="px-4 py-3 font-semibold text-neutral-700">Статус</th>
-                  <th className="px-3 py-3 font-semibold text-neutral-700 text-center">Поз.</th>
-                  <th className="px-4 py-3 font-semibold text-neutral-700">Действия</th>
+                  <th className="px-4 py-3 font-semibold text-neutral-700">{t.rfq.table.request}</th>
+                  <th className="px-4 py-3 font-semibold text-neutral-700">{t.rfq.table.date}</th>
+                  <th className="px-4 py-3 font-semibold text-neutral-700">{t.rfq.table.status}</th>
+                  <th className="px-3 py-3 font-semibold text-neutral-700 text-center">{t.rfq.table.positions}</th>
+                  <th className="px-4 py-3 font-semibold text-neutral-700">{t.rfq.table.actions}</th>
                 </tr>
               </thead>
               <tbody>
@@ -196,10 +188,12 @@ export default function MyRfqManagement() {
                           <span className="block text-xs text-neutral-400 mt-0.5">{r.id.slice(0, 8)}… {r.comment ? `· ${r.comment.slice(0, 40)}${r.comment.length > 40 ? '…' : ''}` : ''}</span>
                         </button>
                       </td>
-                      <td className="px-4 py-3 text-neutral-600 text-xs whitespace-nowrap">{new Date(r.createdAt).toLocaleDateString('ru-RU')}</td>
+                      <td className="px-4 py-3 text-neutral-600 text-xs whitespace-nowrap">
+                        {new Date(r.createdAt).toLocaleDateString(locale)}
+                      </td>
                       <td className="px-4 py-3">
                         <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_STYLES[r.status]}`}>
-                          {STATUS_LABELS[r.status]}
+                          {t.rfq.statuses[r.status]}
                         </span>
                       </td>
                       <td className="px-3 py-3 text-center text-neutral-700">{r.items.length}</td>
@@ -220,7 +214,7 @@ export default function MyRfqManagement() {
                             onClick={() => setExpandedId(isExpanded ? null : r.id)}
                             className="rounded-lg px-2.5 py-1 text-xs font-medium text-accent hover:bg-accent/10 transition-colors"
                           >
-                            {isExpanded ? 'Свернуть' : 'Детали'}
+                            {isExpanded ? t.rfq.table.collapse : t.rfq.table.expand}
                           </button>
                           <button
                             type="button"
@@ -242,11 +236,11 @@ export default function MyRfqManagement() {
           {totalPages > 1 && (
             <div className="mt-4 flex items-center justify-center gap-2">
               <button type="button" onClick={() => setPage((p) => Math.max(0, p - 1))} disabled={page === 0} className="rounded-lg border border-neutral-300 px-3 py-1.5 text-sm disabled:opacity-50">
-                Назад
+                {t.common.prev}
               </button>
-              <span className="text-sm text-neutral-600">{page + 1} из {totalPages}</span>
+              <span className="text-sm text-neutral-600">{page + 1} {t.common.of} {totalPages}</span>
               <button type="button" onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))} disabled={page >= totalPages - 1} className="rounded-lg border border-neutral-300 px-3 py-1.5 text-sm disabled:opacity-50">
-                Далее
+                {t.common.next}
               </button>
             </div>
           )}
@@ -265,11 +259,13 @@ export default function MyRfqManagement() {
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
                 <h3 className="text-base font-semibold text-primary">{rfq.title}</h3>
-                <p className="text-sm text-neutral-500 mt-1">ID: {rfq.id.slice(0, 12)}… · {new Date(rfq.createdAt).toLocaleString('ru-RU')}</p>
+                <p className="text-sm text-neutral-500 mt-1">
+                  {t.rfq.detail.id} {rfq.id.slice(0, 12)}… · {new Date(rfq.createdAt).toLocaleString(locale)}
+                </p>
               </div>
               <div className="flex items-center gap-2">
                 <span className={`inline-flex rounded-full px-3 py-1 text-xs font-medium ${STATUS_STYLES[rfq.status]}`}>
-                  {STATUS_LABELS[rfq.status]}
+                  {t.rfq.statuses[rfq.status]}
                 </span>
                 {actions.length > 0 && actions.map((a) => (
                   <button key={a.action} type="button" onClick={() => handleAction(rfq, a.action)} className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${a.style}`}>
@@ -281,32 +277,35 @@ export default function MyRfqManagement() {
                   onClick={() => exportRfqToExcel(rfq)}
                   className="rounded-lg border border-neutral-300 bg-white px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-50"
                 >
-                  Скачать Excel
+                  {t.rfq.detail.excel}
                 </button>
               </div>
             </div>
 
             {rfq.comment && (
-              <p className="mt-3 text-sm text-neutral-700 bg-white rounded-lg p-3 border border-neutral-200">{rfq.comment}</p>
+              <div className="mt-3 text-sm text-neutral-700 bg-white rounded-lg p-3 border border-neutral-200">
+                <strong className="block text-xs text-neutral-400 mb-1 uppercase tracking-wider">{t.rfq.detail.comment}</strong>
+                {rfq.comment}
+              </div>
             )}
 
             {rfq.desiredDeliveryDate && (
               <p className="mt-2 text-sm text-neutral-600">
-                <strong>Желаемая поставка:</strong> {new Date(rfq.desiredDeliveryDate).toLocaleDateString('ru-RU')}
+                <strong>{t.rfq.detail.delivery}</strong> {new Date(rfq.desiredDeliveryDate).toLocaleDateString(locale)}
               </p>
             )}
 
             {/* Items */}
             {rfq.items.length > 0 && (
               <div className="mt-4">
-                <h4 className="text-sm font-semibold text-neutral-700 mb-2">Позиции ({rfq.items.length})</h4>
+                <h4 className="text-sm font-semibold text-neutral-700 mb-2">{t.rfq.detail.positions} ({rfq.items.length})</h4>
                 <div className="overflow-x-auto rounded-lg border border-neutral-200">
                   <table className="w-full text-left text-xs">
                     <thead>
                       <tr className="bg-neutral-100 border-b border-neutral-200">
-                        <th className="px-3 py-2 font-medium text-neutral-600">Описание</th>
-                        <th className="px-3 py-2 font-medium text-neutral-600 text-center">Кол-во</th>
-                        <th className="px-3 py-2 font-medium text-neutral-600 text-right">Целевая цена</th>
+                        <th className="px-3 py-2 font-medium text-neutral-600">{t.rfq.detail.description}</th>
+                        <th className="px-3 py-2 font-medium text-neutral-600 text-center">{t.rfq.detail.qty}</th>
+                        <th className="px-3 py-2 font-medium text-neutral-600 text-right">{t.rfq.detail.targetPrice}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -326,12 +325,12 @@ export default function MyRfqManagement() {
             {/* Status history */}
             {history.length > 0 && (
               <div className="mt-4">
-                <h4 className="text-sm font-semibold text-neutral-700 mb-2">История статусов</h4>
+                <h4 className="text-sm font-semibold text-neutral-700 mb-2">{t.rfq.detail.history}</h4>
                 <div className="flex flex-col gap-1">
                   {history.map((h) => (
                     <div key={h.id} className="flex items-center gap-2 text-xs">
-                      <span className="text-neutral-400 shrink-0 w-32">{new Date(h.changedAt).toLocaleString('ru-RU')}</span>
-                      <span className={`rounded px-1.5 py-0.5 ${STATUS_STYLES[h.status]}`}>{STATUS_LABELS[h.status]}</span>
+                      <span className="text-neutral-400 shrink-0 w-32">{new Date(h.changedAt).toLocaleString(locale)}</span>
+                      <span className={`rounded px-1.5 py-0.5 ${STATUS_STYLES[h.status]}`}>{t.rfq.statuses[h.status]}</span>
                       {h.comment && <span className="text-neutral-600 truncate">— {h.comment}</span>}
                     </div>
                   ))}
@@ -342,11 +341,11 @@ export default function MyRfqManagement() {
             {/* Messages */}
             {messages.length > 0 && (
               <div className="mt-4">
-                <h4 className="text-sm font-semibold text-neutral-700 mb-2">Сообщения ({messages.length})</h4>
+                <h4 className="text-sm font-semibold text-neutral-700 mb-2">{t.rfq.detail.messages} ({messages.length})</h4>
                 <div className="space-y-2 max-h-60 overflow-y-auto">
                   {messages.map((m) => (
                     <div key={m.id} className={`rounded-lg p-3 border text-xs ${m.authorType === 'BUYER' ? 'bg-blue-50 border-blue-200' : 'bg-white border-neutral-200'}`}>
-                      <span className="text-neutral-400">{m.authorType === 'BUYER' ? 'Покупатель' : 'Продавец'} · {new Date(m.createdAt).toLocaleString('ru-RU')}</span>
+                      <span className="text-neutral-400">{m.authorType === 'BUYER' ? t.rfq.detail.buyer : t.rfq.detail.seller} · {new Date(m.createdAt).toLocaleString(locale)}</span>
                       <p className="mt-1 text-neutral-800">{m.message}</p>
                     </div>
                   ))}
@@ -355,7 +354,7 @@ export default function MyRfqManagement() {
             )}
 
             <button type="button" onClick={() => setExpandedId(null)} className="mt-4 text-sm text-neutral-500 hover:text-neutral-700">
-              ← Свернуть
+              ← {t.rfq.table.collapse}
             </button>
           </div>
         )

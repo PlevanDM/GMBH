@@ -18,7 +18,7 @@ const RFQ_STATUS_STYLES: Record<RfqStatus, string> = {
 export default function BuyerRequestCard() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const { t } = useBuyerLocale()
+  const { t, locale } = useBuyerLocale()
   const buyer = useBuyer()
   const rfq = id ? buyer.getRfqById(id) : undefined
   const history = id ? buyer.getRfqStatusHistory(id) : []
@@ -138,7 +138,7 @@ export default function BuyerRequestCard() {
               {statusLabels[rfq.status]}
             </span>
             {rfq.expiresAt && (
-              <span className="text-sm text-neutral-500">{t.rfqDetail.expiresLabel}: {new Date(rfq.expiresAt).toLocaleDateString()}</span>
+              <span className="text-sm text-neutral-500">{t.rfqDetail.expiresLabel}: {new Date(rfq.expiresAt).toLocaleDateString(locale)}</span>
             )}
             <button type="button" onClick={() => setShowHistory((v) => !v)} className="text-sm text-accent hover:underline">
               {showHistory ? t.rfqDetail.hideHistory : t.rfqDetail.statusHistory}
@@ -182,7 +182,7 @@ export default function BuyerRequestCard() {
           <ul className="space-y-2 text-sm">
             {history.map((h) => (
               <li key={h.id} className="flex gap-2">
-                <span className="text-neutral-500 shrink-0">{new Date(h.changedAt).toLocaleString()}</span>
+                <span className="text-neutral-500 shrink-0">{new Date(h.changedAt).toLocaleString(locale)}</span>
                 <span className={`rounded px-1.5 py-0.5 ${RFQ_STATUS_STYLES[h.status]}`}>{statusLabels[h.status]}</span>
                 {h.comment && <span className="text-neutral-600">— {h.comment}</span>}
               </li>
@@ -223,7 +223,7 @@ export default function BuyerRequestCard() {
           {isDraft ? (
             <input type="date" value={desiredDeliveryDate} onChange={(e) => setDesiredDeliveryDate(e.target.value)} className="mt-1 block w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm" />
           ) : (
-            <p className="mt-1 text-neutral-800">{rfq.desiredDeliveryDate ? new Date(rfq.desiredDeliveryDate).toLocaleDateString() : '—'}</p>
+            <p className="mt-1 text-neutral-800">{rfq.desiredDeliveryDate ? new Date(rfq.desiredDeliveryDate).toLocaleDateString(locale) : '—'}</p>
           )}
         </label>
         <label className="block sm:col-span-2">
@@ -304,11 +304,11 @@ export default function BuyerRequestCard() {
                           <span className="text-xs text-neutral-400">{currSymbol}</span>
                         </div>
                       ) : (
-                        item.targetPrice != null ? `${item.targetPrice.toLocaleString()} ${currSymbol}` : '—'
+                        item.targetPrice != null ? `${item.targetPrice.toLocaleString(locale)} ${currSymbol}` : '—'
                       )}
                     </td>
                     <td className="px-4 py-3">
-                      {quote ? `${quote.offeredPrice.toLocaleString()} ${({ EUR: '€', UAH: 'грн', USD: '$', RUB: '₽', PLN: 'zł', RON: 'lei', GBP: '£' } as Record<string, string>)[quote.currency] ?? quote.currency}` : '—'}
+                      {quote ? `${quote.offeredPrice.toLocaleString(locale)} ${({ EUR: '€', UAH: locale === 'uk' || locale === 'ru' ? 'грн' : 'UAH', USD: '$', RUB: '₽', PLN: 'zł', RON: 'lei', GBP: '£' } as Record<string, string>)[quote.currency] ?? quote.currency}` : '—'}
                     </td>
                     <td className="px-4 py-3">{quote?.minOrderQty ?? '—'}</td>
                     <td className="px-4 py-3">{quote?.availableQty ?? '—'}</td>
@@ -347,7 +347,7 @@ export default function BuyerRequestCard() {
                 }`}
               >
                 <span className="text-xs text-neutral-500">
-                  {m.authorType === 'BUYER' ? t.chat.authorBuyer : m.authorType === 'SELLER' ? t.chat.authorSeller : t.chat.system} · {new Date(m.createdAt).toLocaleString()}
+                  {m.authorType === 'BUYER' ? t.chat.authorBuyer : m.authorType === 'SELLER' ? t.chat.authorSeller : t.chat.system} · {new Date(m.createdAt).toLocaleString(locale)}
                 </span>
                 <p className="mt-0.5 text-neutral-800">{m.message}</p>
               </div>

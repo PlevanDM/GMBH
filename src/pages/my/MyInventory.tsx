@@ -1,8 +1,8 @@
 import { useCallback, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
 import type { ColumnMapping, InventoryBatch } from '../../types/inventory'
 import { DEFAULT_MAPPING } from '../../types/inventory'
 import { useInventory } from '../../store/inventoryStore'
+import { useSellerLocale } from '../../i18n/SellerLocaleContext'
 import { IconUpload, IconFileText } from '../../components/CabinetIcons'
 import {
   parseInventoryFile,
@@ -27,18 +27,12 @@ import {
   CONDITION_LABELS as CATALOG_CONDITION_LABELS,
 } from '../../data/catalogs'
 
-const STATUS_LABELS: Record<InventoryStatus, string> = {
-  available: 'В наличии',
-  sold: 'Продано',
-  reserved: 'Зарезервировано',
-  unavailable: 'Недоступно',
-}
-
 function batchLabel(b: InventoryBatch): string {
   return `${b.country} · ${b.date} · ${b.supplier}`
 }
 
 export default function MyInventory() {
+  const { t, locale } = useSellerLocale()
   const {
     items,
     batches,
@@ -98,7 +92,7 @@ export default function MyInventory() {
           setSelectedSheet(parsed.sheetNames[0] ?? '')
           setMapping(suggestMapping(parsed.headers))
         })
-        .catch((err) => setError(err instanceof Error ? err.message : 'Ошибка загрузки'))
+            .catch((err) => setError(err instanceof Error ? err.message : t.dashboard.importError))
       e.target.value = ''
     },
     []
@@ -114,7 +108,7 @@ export default function MyInventory() {
   const handleLoadGoogleSheets = useCallback(() => {
     const url = googleSheetsUrl.trim()
     if (!url) {
-      setError('Вставьте ссылку на Google Таблицу')
+      setError(t.inventory.import.googlePlaceholder)
       return
     }
     setError(null)
@@ -126,9 +120,9 @@ export default function MyInventory() {
         setMapping(suggestMapping(parsed.headers))
         setGoogleSheetsUrl('')
       })
-      .catch((err) => setError(err instanceof Error ? err.message : 'Ошибка загрузки таблицы'))
+          .catch((err) => setError(err instanceof Error ? err.message : t.dashboard.importError))
       .finally(() => setGoogleSheetsLoading(false))
-  }, [googleSheetsUrl])
+  }, [googleSheetsUrl, t])
 
   const rows = file && selectedSheet ? file.rowsBySheet[selectedSheet] ?? [] : []
   const previewRows = rows.slice(0, 15)
@@ -136,15 +130,15 @@ export default function MyInventory() {
   const handleImport = useCallback(() => {
     if (!file || !selectedSheet) return
     if (!mapping.description) {
-      setError('Укажите колонку для описания')
+      setError(t.inventory.columns.description)
       return
     }
     if (importBatchMode === 'existing' && !importBatchId) {
-      setError('Выберите партию или создайте новую')
+      setError(t.inventory.import.selectBatch)
       return
     }
     if (importBatchMode === 'new' && (!newBatchCountry.trim() || !newBatchSupplier.trim())) {
-      setError('Укажите страну и от кого закупка')
+      setError(`${t.inventory.import.country}, ${t.inventory.import.supplier}`)
       return
     }
     setImporting(true)
@@ -171,7 +165,7 @@ export default function MyInventory() {
       setNewBatchSupplier('')
       setNewBatchNotes('')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Ошибка импорта')
+      setError(err instanceof Error ? err.message : t.dashboard.importError)
     } finally {
       setImporting(false)
     }
@@ -265,15 +259,9 @@ export default function MyInventory() {
   const yearOptions = getYears()
 
   const formatDate = (iso: string) =>
-    new Date(iso).toLocaleString('ru-RU', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    })
+    new Date(iso).toLocaleString(locale)
   const formatDateShort = (dateStr: string) =>
-    new Date(dateStr).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' })
+    new Date(dateStr).toLocaleDateString(locale)
 
   const toggleSelectAll = () => {
     if (selectedIds.size === filteredItems.length && filteredItems.length > 0) {
@@ -314,7 +302,7 @@ export default function MyInventory() {
   }
 
   const handleBulkDelete = () => {
-    if (!window.confirm(`Удалить выбранные позиции (${selectedIds.size} шт.)?`)) return
+    if (!window.confirm(t.inventory.bulk.deleteConfirm.replace('{{count}}', selectedIds.size.toString()))) return
     removeItems(Array.from(selectedIds))
     setSelectedIds(new Set())
   }
@@ -334,7 +322,7 @@ export default function MyInventory() {
   }
 
   const handleBulkMarketSync = () => {
-    if (!window.confirm(`Установить рыночные оптовые цены для выбранных позиций (${selectedIds.size} шт.)?`)) return
+    if (!window.confirm(t.inventory.bulk.syncConfirm.replace('{{count}}', selectedIds.size.toString()))) return
 
     Array.from(selectedIds).forEach(id => {
       const it = items.find(x => x.id === id)
@@ -351,7 +339,7 @@ export default function MyInventory() {
 
   return (
     <>
-      <h2 className="text-lg font-semibold text-primary">Обновление прайса и остатков</h2>
+      <h2 className="text-lg font-semibold text-primary">{t.inventory.title}</h2>
 
       {items.length > 0 && (
         <div className="mt-6 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
@@ -359,47 +347,45 @@ export default function MyInventory() {
             onClick={() => setFilterIssue('none')}
             className={`text-left rounded-xl border p-4 shadow-sm transition-all ${filterIssue === 'none' ? 'border-primary ring-1 ring-primary/20 bg-white' : 'border-neutral-200 bg-neutral-50/50 opacity-80'}`}
           >
-            <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider">Всего позиций</p>
+            <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider">{t.inventory.itemsTitle}</p>
             <p className="mt-1 text-2xl font-bold text-primary">{inventoryStats.totalItems}</p>
-            <p className="text-xs text-neutral-500">{inventoryStats.totalQuantity} ед. товара</p>
+            <p className="text-xs text-neutral-500">{inventoryStats.totalQuantity} {t.dashboard.items}</p>
           </button>
           <button
             onClick={() => setFilterIssue('no-price')}
             className={`text-left rounded-xl border p-4 shadow-sm transition-all ${filterIssue === 'no-price' ? 'border-amber-400 ring-1 ring-amber-400/20 bg-white' : inventoryStats.missingPrices > 0 ? 'border-amber-200 bg-amber-50' : 'border-neutral-200 bg-neutral-50/50 opacity-80'}`}
           >
-            <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider">Без цены</p>
+            <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider">{t.inventory.health.warning}</p>
             <p className={`mt-1 text-2xl font-bold ${inventoryStats.missingPrices > 0 ? 'text-amber-700' : 'text-primary'}`}>{inventoryStats.missingPrices}</p>
-            <p className="text-xs text-neutral-500">требуют оценки</p>
+            <p className="text-xs text-neutral-500">{t.inventory.health.warning}</p>
           </button>
           <button
             onClick={() => setFilterIssue('no-specs')}
             className={`text-left rounded-xl border p-4 shadow-sm transition-all ${filterIssue === 'no-specs' ? 'border-blue-400 ring-1 ring-blue-400/20 bg-white' : inventoryStats.missingSpecs > 0 ? 'border-blue-200 bg-blue-50' : 'border-neutral-200 bg-neutral-50/50 opacity-80'}`}
           >
-            <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider">Без хар-к</p>
+            <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider">{t.inventory.health.missingSpecs}</p>
             <p className={`mt-1 text-2xl font-bold ${inventoryStats.missingSpecs > 0 ? 'text-blue-700' : 'text-primary'}`}>{inventoryStats.missingSpecs}</p>
-            <p className="text-xs text-neutral-500">пропуски в CPU/RAM</p>
+            <p className="text-xs text-neutral-500">{t.inventory.health.missingSpecs}</p>
           </button>
           <div className="rounded-xl border border-neutral-200 bg-white p-4 shadow-sm">
-            <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider">Сумма прайса</p>
-            <p className="mt-1 text-2xl font-bold text-primary">€{inventoryStats.totalPriceValue.toLocaleString('ru-RU')}</p>
-            <p className="text-xs text-neutral-500">текущая оценка</p>
+            <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider">{t.dashboard.valueKpi}</p>
+            <p className="mt-1 text-2xl font-bold text-primary">€{inventoryStats.totalPriceValue.toLocaleString(locale)}</p>
+            <p className="text-xs text-neutral-500">{t.settings.currency}</p>
           </div>
           <div className="rounded-xl border border-emerald-200 bg-emerald-50/50 p-4 shadow-sm">
-            <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider">Рыночный опт</p>
-            <p className="mt-1 text-2xl font-bold text-emerald-700">€{inventoryStats.totalMarketWholesale.toLocaleString('ru-RU')}</p>
-            <p className="text-xs text-emerald-600">оценка Smart Engine</p>
+            <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider">{t.scout.wholesalePrice}</p>
+            <p className="mt-1 text-2xl font-bold text-emerald-700">€{inventoryStats.totalMarketWholesale.toLocaleString(locale)}</p>
+            <p className="text-xs text-emerald-600">Smart Engine</p>
           </div>
         </div>
       )}
 
       <p className="mt-2 text-neutral-600 leading-relaxed">
-        Загрузка прайсов в любом формате: Excel (xlsx, xls) или CSV. Колонки (цена, инв. номер, описание, статус и т.д.) определяются по шапке файла автоматически — поддерживаются разные названия на EN, RU, DE, PL и др. При необходимости маппинг можно поправить вручную. Данные сохраняются в браузере и отображаются на{' '}
-        <Link to="/marketplace/stock" className="text-accent hover:underline">витрине</Link> и в{' '}
-        <Link to="/buyer" className="text-accent hover:underline">кабинете покупателя</Link>.
+        {t.scout.tip}. {t.inventory.uploadTitle} (Excel/CSV).
       </p>
       {lastUpdated && (
         <p className="mt-2 text-sm text-neutral-500">
-          Последнее обновление: <strong>{formatDate(lastUpdated)}</strong>
+          {t.inventory.lastUpdated}: <strong>{formatDate(lastUpdated)}</strong>
         </p>
       )}
 
@@ -409,7 +395,7 @@ export default function MyInventory() {
           className="rounded-lg border border-accent bg-white px-4 py-2 text-sm font-medium text-accent hover:bg-accent/5 flex items-center gap-2"
         >
           <IconFileText className="w-4 h-4" />
-          Экспортировать {selectedIds.size > 0 ? `выбранные (${selectedIds.size})` : 'весь список'}
+          {t.inventory.export.button.replace('{{target}}', selectedIds.size > 0 ? t.inventory.export.selected.replace('{{count}}', selectedIds.size.toString()) : t.inventory.export.all)}
         </button>
 
         <button
@@ -418,16 +404,16 @@ export default function MyInventory() {
           disabled={items.length === 0 && batches.length === 0}
           className="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-100 disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          Очистить всё и загрузить новые стоки
+          {t.inventory.clearAll}
         </button>
         <span className="text-sm text-neutral-500">
-          Удалить все позиции и партии, чтобы загрузить витрину заново.
+          {t.inventory.clearConfirm}
         </span>
       </div>
       {showClearConfirm && (
         <div className="mt-3 rounded-xl border border-red-200 bg-red-50/80 p-4">
           <p className="text-sm font-medium text-red-800">
-            Удалить все позиции ({items.length}) и партии ({batches.length})? Это действие нельзя отменить.
+            {t.inventory.clearConfirm} ({items.length} items, {batches.length} batches)
           </p>
           <div className="mt-3 flex gap-2">
             <button
@@ -441,28 +427,28 @@ export default function MyInventory() {
               }}
               className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
             >
-              Да, очистить всё
+              OK
             </button>
             <button
               type="button"
               onClick={() => setShowClearConfirm(false)}
               className="rounded-lg border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
             >
-              Отмена
+              Cancel
             </button>
           </div>
         </div>
       )}
 
       <div className="mt-6 rounded-xl border border-neutral-200 bg-neutral-50 p-4">
-        <h3 className="text-sm font-semibold text-primary">Импорт из Google Таблиц</h3>
+        <h3 className="text-sm font-semibold text-primary">{t.inventory.import.googleTitle}</h3>
         <p className="mt-1 text-xs text-neutral-500">
-          Вставьте ссылку на таблицу (вид или «Файл → Скачать → CSV»). Поддерживается как сток и прайс. Таблицу нужно открыть для всех по ссылке («Настройки доступа» → «Все, у кого есть ссылка»).
+          {t.inventory.import.googleDesc}
         </p>
         <div className="mt-3 flex flex-wrap items-center gap-3">
           <input
             type="url"
-            placeholder="https://docs.google.com/spreadsheets/d/..."
+            placeholder={t.inventory.import.googlePlaceholder}
             value={googleSheetsUrl}
             onChange={(e) => setGoogleSheetsUrl(e.target.value)}
             className="min-w-[280px] flex-1 rounded-lg border border-neutral-300 px-3 py-2 text-sm text-neutral-800 placeholder:text-neutral-400"
@@ -473,14 +459,14 @@ export default function MyInventory() {
             disabled={googleSheetsLoading}
             className="btn-secondary text-sm py-2 px-4 rounded-lg disabled:opacity-50"
           >
-            {googleSheetsLoading ? 'Загрузка…' : 'Загрузить'}
+            {googleSheetsLoading ? t.inventory.import.loading : t.inventory.import.load}
           </button>
         </div>
       </div>
 
       <div className="mt-6 rounded-xl border border-neutral-200 bg-neutral-50 p-4">
-        <h3 className="text-sm font-semibold text-primary">Импорт через API</h3>
-        <p className="mt-1 text-xs text-neutral-500">Загрузка файла на сервер (при подключённом API).</p>
+        <h3 className="text-sm font-semibold text-primary">{t.inventory.import.apiTitle}</h3>
+        <p className="mt-1 text-xs text-neutral-500">{t.inventory.import.apiDesc}</p>
         <div className="mt-3 flex flex-wrap items-center gap-3">
           <input
             type="file"
@@ -503,26 +489,26 @@ export default function MyInventory() {
             disabled={!apiFile || apiStatus === 'uploading'}
             className="btn-secondary text-sm py-2 px-3 rounded-lg disabled:opacity-50"
           >
-            {apiStatus === 'uploading' ? 'Загрузка…' : 'Загрузить на сервер'}
+            {apiStatus === 'uploading' ? t.inventory.import.loading : t.inventory.import.apiButton}
           </button>
-          {apiStatus === 'done' && <span className="text-sm text-green-600">Импорт выполнен.</span>}
-          {apiStatus === 'error' && <span className="text-sm text-red-600">Ошибка (API недоступен?).</span>}
+          {apiStatus === 'done' && <span className="text-sm text-green-600">{t.inventory.import.apiDone}</span>}
+          {apiStatus === 'error' && <span className="text-sm text-red-600">{t.inventory.import.apiError}</span>}
         </div>
       </div>
 
       {/* Партии: список */}
       {batches.length > 0 && (
         <div className="mt-6 rounded-xl border border-neutral-200 bg-neutral-50 p-4">
-          <h3 className="text-sm font-semibold text-primary">Партии ({batches.length})</h3>
+          <h3 className="text-sm font-semibold text-primary">{t.inventory.batchesTitle} ({batches.length})</h3>
           <div className="mt-2 overflow-x-auto">
             <table className="w-full min-w-[500px] text-left text-sm">
               <thead>
                 <tr className="border-b border-neutral-200 text-neutral-600">
-                  <th className="px-3 py-2">Страна</th>
-                  <th className="px-3 py-2">Дата</th>
-                  <th className="px-3 py-2">Откуда закупка</th>
-                  <th className="px-3 py-2">От кого</th>
-                  <th className="px-3 py-2">Позиций</th>
+                    <th className="px-3 py-2">{t.inventory.import.country}</th>
+                    <th className="px-3 py-2">{t.inventory.import.date}</th>
+                    <th className="px-3 py-2">{t.inventory.import.source}</th>
+                    <th className="px-3 py-2">{t.inventory.import.supplier}</th>
+                    <th className="px-3 py-2">{t.inventory.itemsTitle}</th>
                   <th className="px-3 py-2"></th>
                 </tr>
               </thead>
@@ -540,7 +526,7 @@ export default function MyInventory() {
                         onClick={() => removeBatch(b.id)}
                         className="text-red-600 hover:underline text-xs"
                       >
-                        Удалить
+                          {t.users.table.delete}
                       </button>
                     </td>
                   </tr>
@@ -563,21 +549,21 @@ export default function MyInventory() {
             />
             <span className="btn-primary inline-flex items-center gap-2">
               <IconUpload className="shrink-0" />
-              Выбрать файл
+              {t.inventory.import.chooseFile}
             </span>
             <span className="text-sm text-neutral-500">.xlsx, .xls, .csv</span>
           </label>
         ) : (
           <div>
             <div className="flex flex-wrap items-center justify-between gap-4">
-              <span className="text-sm font-medium text-primary">Файл загружен</span>
+              <span className="text-sm font-medium text-primary">{t.inventory.import.fileSelected}</span>
               <button type="button" onClick={clearFile} className="text-sm text-neutral-500 hover:text-primary">
-                Сбросить
+                {t.inventory.bulk.reset}
               </button>
             </div>
             {file.sheetNames.length > 1 && (
               <div className="mt-3">
-                <label className="text-sm text-neutral-600">Лист:</label>
+                <label className="text-sm text-neutral-600">{t.inventory.import.sheet}</label>
                 <select
                   value={selectedSheet}
                   onChange={(e) => setSelectedSheet(e.target.value)}
@@ -591,7 +577,7 @@ export default function MyInventory() {
             )}
 
             <div className="mt-4 rounded-lg border border-neutral-200 bg-white p-4">
-              <h4 className="text-sm font-semibold text-primary">Партия для импорта</h4>
+              <h4 className="text-sm font-semibold text-primary">{t.inventory.import.batchTitle}</h4>
               <div className="mt-2 flex flex-wrap gap-4">
                 <label className="flex items-center gap-2">
                   <input
@@ -600,7 +586,7 @@ export default function MyInventory() {
                     checked={importBatchMode === 'new'}
                     onChange={() => setImportBatchMode('new')}
                   />
-                  <span className="text-sm">Новая партия</span>
+                  <span className="text-sm">{t.inventory.import.newBatch}</span>
                 </label>
                 <label className="flex items-center gap-2">
                   <input
@@ -609,13 +595,13 @@ export default function MyInventory() {
                     checked={importBatchMode === 'existing'}
                     onChange={() => setImportBatchMode('existing')}
                   />
-                  <span className="text-sm">Существующая</span>
+                  <span className="text-sm">{t.inventory.import.existingBatch}</span>
                 </label>
               </div>
               {importBatchMode === 'new' ? (
                 <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <div>
-                    <label className="text-xs text-neutral-500">Страна</label>
+                    <label className="text-xs text-neutral-500">{t.inventory.import.country}</label>
                     <input
                       type="text"
                       value={newBatchCountry}
@@ -625,7 +611,7 @@ export default function MyInventory() {
                     />
                   </div>
                   <div>
-                    <label className="text-xs text-neutral-500">Дата закупки</label>
+                    <label className="text-xs text-neutral-500">{t.inventory.import.date}</label>
                     <input
                       type="date"
                       value={newBatchDate}
@@ -634,27 +620,27 @@ export default function MyInventory() {
                     />
                   </div>
                   <div>
-                    <label className="text-xs text-neutral-500">Откуда закупка</label>
+                    <label className="text-xs text-neutral-500">{t.inventory.import.source}</label>
                     <input
                       type="text"
                       value={newBatchSource}
                       onChange={(e) => setNewBatchSource(e.target.value)}
-                      placeholder="город, регион, склад"
+                      placeholder={t.inventory.import.sourcePlaceholder}
                       className="mt-0.5 w-full rounded-lg border border-neutral-300 px-2 py-1.5 text-sm"
                     />
                   </div>
                   <div>
-                    <label className="text-xs text-neutral-500">От кого (поставщик/партнёр)</label>
+                    <label className="text-xs text-neutral-500">{t.inventory.import.supplier}</label>
                     <input
                       type="text"
                       value={newBatchSupplier}
                       onChange={(e) => setNewBatchSupplier(e.target.value)}
-                      placeholder="название"
+                      placeholder={t.inventory.import.supplierPlaceholder}
                       className="mt-0.5 w-full rounded-lg border border-neutral-300 px-2 py-1.5 text-sm"
                     />
                   </div>
                   <div className="sm:col-span-2">
-                    <label className="text-xs text-neutral-500">Заметки</label>
+                    <label className="text-xs text-neutral-500">{t.inventory.import.notes}</label>
                     <input
                       type="text"
                       value={newBatchNotes}
@@ -670,7 +656,7 @@ export default function MyInventory() {
                     onChange={(e) => setImportBatchId(e.target.value)}
                     className="w-full max-w-md rounded-lg border border-neutral-300 px-2 py-1.5 text-sm"
                   >
-                    <option value="">— Выберите партию</option>
+                    <option value="">{t.inventory.import.selectBatch}</option>
                     {batches.map((b) => (
                       <option key={b.id} value={b.id}>{batchLabel(b)}</option>
                     ))}
@@ -688,7 +674,7 @@ export default function MyInventory() {
                     {mappingAnalysis.detectedType}
                   </span>
                   <span className="text-xs text-blue-600">
-                    Распознано {mappingAnalysis.mappedCount} из {file.headers.length} колонок
+                    {t.dashboard.mappedColumns.replace('{{count}}', mappingAnalysis.mappedCount.toString()).replace('{{total}}', file.headers.length.toString())}
                   </span>
                   <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
                     mappingAnalysis.confidence >= 70
@@ -697,7 +683,7 @@ export default function MyInventory() {
                         ? 'bg-yellow-100 text-yellow-700'
                         : 'bg-red-100 text-red-700'
                   }`}>
-                    {mappingAnalysis.confidence}% уверенность
+                    {t.inventory.import.mappingConfidence.replace('{{percent}}', mappingAnalysis.confidence.toString())}
                   </span>
                 </div>
                 {mappingAnalysis.suggestions.length > 0 && (
@@ -711,7 +697,7 @@ export default function MyInventory() {
                 )}
                 {mappingAnalysis.unmappedHeaders.length > 0 && (
                   <div className="mt-2 text-xs text-blue-600">
-                    <span className="font-medium">Нераспознанные колонки: </span>
+                    <span className="font-medium">{t.inventory.import.unmapped} </span>
                     {mappingAnalysis.unmappedHeaders.join(', ')}
                   </div>
                 )}
@@ -719,36 +705,36 @@ export default function MyInventory() {
             )}
 
             <p className="text-sm text-neutral-600">
-              Колонки подбираются по шапке файла автоматически (поддержка разных форматов прайсов: EN, RU, DE и др.). Бренд и категория определяются из описания, если не найдена отдельная колонка. Нераспознанные колонки сохраняются в комментариях.
+              {t.inventory.import.mappingDesc}
             </p>
             <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
               {(
                 [
-                  { key: 'description', label: 'Описание / название', required: true },
-                  { key: 'brand', label: 'Бренд' },
-                  { key: 'category', label: 'Категория' },
-                  { key: 'condition', label: 'Состояние / Grade' },
-                  { key: 'inventoryNumber', label: 'Инв. номер / ID' },
-                  { key: 'serialNumber', label: 'Серийный номер (S/N)' },
-                  { key: 'sku', label: 'Артикул / SKU' },
-                  { key: 'price', label: 'Цена' },
-                  { key: 'quantity', label: 'Количество' },
-                  { key: 'processor', label: 'Процессор (CPU)' },
-                  { key: 'ram', label: 'Оперативная память (RAM)' },
-                  { key: 'storage', label: 'Накопитель (SSD/HDD)' },
-                  { key: 'gpu', label: 'Видеокарта (GPU)' },
-                  { key: 'year', label: 'Год выпуска' },
-                  { key: 'batteryCycles', label: 'Циклы АКБ' },
-                  { key: 'batteryHealth', label: 'АКБ / здоровье батареи' },
-                  { key: 'status', label: 'Статус / в наличии' },
-                  { key: 'imageUrl', label: 'Фото / URL изображения' },
-                  { key: 'location', label: 'Локация' },
-                  { key: 'notes', label: 'Комментарии' },
+                  { key: 'description', label: t.inventory.columns.description, required: true },
+                  { key: 'brand', label: t.inventory.columns.brand },
+                  { key: 'category', label: t.inventory.columns.category },
+                  { key: 'condition', label: t.inventory.columns.condition },
+                  { key: 'inventoryNumber', label: t.inventory.columns.invNo },
+                  { key: 'serialNumber', label: t.inventory.columns.sn },
+                  { key: 'sku', label: 'SKU' },
+                  { key: 'price', label: t.inventory.columns.price },
+                  { key: 'quantity', label: t.inventory.columns.qty },
+                  { key: 'processor', label: t.inventory.columns.processor },
+                  { key: 'ram', label: t.inventory.columns.ram },
+                  { key: 'storage', label: t.inventory.columns.storage },
+                  { key: 'gpu', label: t.inventory.columns.gpu },
+                  { key: 'year', label: t.inventory.columns.year },
+                  { key: 'batteryCycles', label: t.inventory.columns.cycles },
+                  { key: 'batteryHealth', label: t.inventory.columns.health },
+                  { key: 'status', label: t.inventory.columns.status },
+                  { key: 'imageUrl', label: t.inventory.columns.photo },
+                  { key: 'location', label: t.inventory.columns.location },
+                  { key: 'notes', label: t.inventory.columns.notes },
                 ] as { key: keyof ColumnMapping; label: string; required?: boolean }[]
               ).map(({ key, label, required }) => (
                 <div key={key}>
                   <label className={`text-xs ${required ? 'text-red-600 font-medium' : 'text-neutral-500'}`}>
-                    {label}{required ? ' *' : ''}
+                    {label}{required ? ` (${t.inventory.import.required})` : ''}
                   </label>
                   <select
                     value={mapping[key]}
@@ -761,7 +747,7 @@ export default function MyInventory() {
                           : 'border-neutral-300'
                     }`}
                   >
-                    <option value="">— не использовать</option>
+                    <option value="">{t.dashboard.notUse}</option>
                     {file.headers.map((h) => (
                       <option key={h} value={h}>{h}</option>
                     ))}
@@ -780,7 +766,7 @@ export default function MyInventory() {
                         <th
                           key={h}
                           className={`px-2 py-2 font-medium text-xs whitespace-nowrap ${isMapped ? 'text-green-700 bg-green-50/40' : 'text-neutral-500'}`}
-                          title={isMapped ? 'Колонка распознана' : 'Не привязана'}
+                          title={isMapped ? t.dashboard.columnRecognized : t.dashboard.notLinked}
                         >
                           {h}
                           {isMapped && <span className="ml-1 text-green-500">&#10003;</span>}
@@ -803,7 +789,7 @@ export default function MyInventory() {
                 </tbody>
               </table>
             </div>
-            <p className="mt-2 text-xs text-neutral-500">Превью: {previewRows.length} из {rows.length} строк</p>
+            <p className="mt-2 text-xs text-neutral-500">{t.dashboard.previewRows.replace('{{count}}', previewRows.length.toString()).replace('{{total}}', rows.length.toString())}</p>
             {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
             <div className="mt-4 flex gap-3">
               <button
@@ -812,10 +798,10 @@ export default function MyInventory() {
                 disabled={importing || !mapping.description}
                 className="btn-primary disabled:opacity-50"
               >
-                {importing ? 'Импорт…' : `Импортировать (${rows.length} шт.)`}
+                {importing ? t.inventory.import.loading : t.inventory.import.importButton.replace('{{count}}', rows.length.toString())}
               </button>
               <button type="button" onClick={clearFile} className="btn-secondary">
-                Отмена
+                {t.inventory.import.cancel}
               </button>
             </div>
           </div>
@@ -824,24 +810,8 @@ export default function MyInventory() {
 
       {/* Filters and table */}
       <div className="mt-8">
-        <h3 className="text-base font-semibold text-primary">Позиции ({filteredItems.length}{items.length !== filteredItems.length ? ` из ${items.length}` : ''})</h3>
+        <h3 className="text-base font-semibold text-primary">{t.inventory.itemsTitle} ({filteredItems.length}{items.length !== filteredItems.length ? ` ${t.common.of} ${items.length}` : ''})</h3>
 
-        {/* Demo data indicator */}
-        {items.length > 0 && batches.length === 0 && (
-          <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50/70 px-4 py-2.5 flex flex-wrap items-center gap-3">
-            <span className="inline-flex items-center gap-1.5 text-sm text-amber-800">
-              <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-              <strong>Демо-данные.</strong> Сейчас отображается демо-прайс для примера. Загрузите свой файл выше или очистите данные.
-            </span>
-            <button
-              type="button"
-              onClick={() => setShowClearConfirm(true)}
-              className="text-xs font-medium text-amber-700 hover:text-amber-900 underline underline-offset-2"
-            >
-              Очистить и загрузить свои
-            </button>
-          </div>
-        )}
         {items.length > 0 && (
           <div className="mt-3 flex flex-wrap gap-3">
             <select
@@ -849,7 +819,7 @@ export default function MyInventory() {
               onChange={(e) => setFilterBatchId(e.target.value)}
               className="rounded-lg border border-neutral-300 px-2 py-1.5 text-sm"
             >
-              <option value="">Все партии</option>
+              <option value="">{t.dashboard.allParties}</option>
               {batches.map((b) => (
                 <option key={b.id} value={b.id}>{batchLabel(b)}</option>
               ))}
@@ -859,7 +829,7 @@ export default function MyInventory() {
               onChange={(e) => setFilterCountry(e.target.value)}
               className="rounded-lg border border-neutral-300 px-2 py-1.5 text-sm"
             >
-              <option value="">Все страны</option>
+              <option value="">{t.dashboard.allCountries}</option>
               {uniqueCountries.map((c) => (
                 <option key={c} value={c}>{c}</option>
               ))}
@@ -868,7 +838,7 @@ export default function MyInventory() {
               type="text"
               value={filterSupplier}
               onChange={(e) => setFilterSupplier(e.target.value)}
-              placeholder="Поставщик"
+              placeholder={t.inventory.import.supplier}
               className="rounded-lg border border-neutral-300 px-2 py-1.5 text-sm w-40"
             />
             {(filterBatchId || filterCountry || filterSupplier.trim() || filterIssue !== 'none') && (
@@ -882,7 +852,7 @@ export default function MyInventory() {
                 }}
                 className="text-sm text-neutral-500 hover:text-primary"
               >
-                Сбросить фильтры
+                {t.dashboard.resetFilters}
               </button>
             )}
           </div>
@@ -890,8 +860,8 @@ export default function MyInventory() {
         {filteredItems.length === 0 ? (
           <div className="mt-4 rounded-xl border-2 border-dashed border-neutral-200 bg-neutral-50 p-8 text-center text-neutral-500">
             {items.length === 0
-              ? 'Нет позиций. Загрузите файл и укажите партию при импорте.'
-              : 'Нет позиций по выбранным фильтрам.'}
+              ? t.dashboard.noPositions
+              : t.dashboard.noFilteredPositions}
           </div>
         ) : (
           <>
@@ -928,12 +898,12 @@ export default function MyInventory() {
           {selectedIds.size > 0 && (
             <div className="sticky top-0 z-20 mt-4 rounded-xl border border-accent/30 bg-accent/5 p-4 shadow-sm flex flex-wrap items-center justify-between gap-4 backdrop-blur-sm">
               <div className="flex items-center gap-3">
-                <span className="text-sm font-semibold text-accent">Выбрано: {selectedIds.size}</span>
+                <span className="text-sm font-semibold text-accent">{t.inventory.bulk.selected.replace('{{count}}', selectedIds.size.toString())}</span>
                 <button
                   onClick={() => setSelectedIds(new Set())}
                   className="text-xs text-neutral-500 hover:text-primary underline"
                 >
-                  Сбросить
+                  {t.inventory.bulk.reset}
                 </button>
               </div>
               <div className="flex flex-wrap items-center gap-3">
@@ -943,10 +913,10 @@ export default function MyInventory() {
                     className="rounded border border-neutral-300 px-2 py-1.5 text-xs bg-white"
                     defaultValue=""
                   >
-                    <option value="" disabled>Сменить статус...</option>
-                    <option value="available">В наличии</option>
-                    <option value="sold">Продано</option>
-                    <option value="reserved">Зарезервировано</option>
+                    <option value="" disabled>{t.inventory.bulk.changeStatus}</option>
+                    <option value="available">{t.inventory.statuses.available}</option>
+                    <option value="sold">{t.inventory.statuses.sold}</option>
+                    <option value="reserved">{t.inventory.statuses.reserved}</option>
                   </select>
                 </div>
 
@@ -956,8 +926,8 @@ export default function MyInventory() {
                     className="rounded border border-neutral-300 px-2 py-1.5 text-xs bg-white max-w-[150px]"
                     defaultValue=""
                   >
-                    <option value="" disabled>Сменить партию...</option>
-                    <option value="none">— Без партии</option>
+                    <option value="" disabled>{t.inventory.bulk.changeBatch}</option>
+                    <option value="none">{t.inventory.bulk.noBatch}</option>
                     {batches.map(b => (
                       <option key={b.id} value={b.id}>{b.country} {b.supplier}</option>
                     ))}
@@ -977,7 +947,7 @@ export default function MyInventory() {
                     disabled={!bulkPriceChange}
                     className="rounded bg-accent px-3 py-1.5 text-xs font-medium text-white hover:bg-accent-hover disabled:opacity-50"
                   >
-                    Изм. цену
+                    {t.inventory.bulk.adjustPrice}
                   </button>
                 </div>
 
@@ -985,14 +955,14 @@ export default function MyInventory() {
                   onClick={handleBulkMarketSync}
                   className="rounded bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700"
                 >
-                  Sync with Market
+                  {t.inventory.bulk.syncMarket}
                 </button>
 
                 <button
                   onClick={handleBulkDelete}
                   className="rounded border border-red-300 bg-white px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-50"
                 >
-                  Удалить выбранные
+                  {t.inventory.bulk.deleteSelected}
                 </button>
               </div>
             </div>
@@ -1010,31 +980,31 @@ export default function MyInventory() {
                       className="rounded border-neutral-400"
                     />
                   </th>
-                  <th className="px-3 py-2 font-semibold text-neutral-700">Описание</th>
-                  <th className="px-3 py-2 font-semibold text-neutral-700">Бренд</th>
-                  <th className="px-3 py-2 font-semibold text-neutral-700">Категория</th>
-                  <th className="px-3 py-2 font-semibold text-neutral-700">Состояние</th>
-                  <th className="px-3 py-2 font-semibold text-neutral-700">Инв. №</th>
-                  <th className="px-3 py-2 font-semibold text-neutral-700">S/N</th>
-                  <th className="px-3 py-2 font-semibold text-neutral-700">Фото URL</th>
-                  <th className="px-3 py-2 font-semibold text-neutral-700">Процессор</th>
+                  <th className="px-3 py-2 font-semibold text-neutral-700">{t.inventory.columns.description}</th>
+                  <th className="px-3 py-2 font-semibold text-neutral-700">{t.inventory.columns.brand}</th>
+                  <th className="px-3 py-2 font-semibold text-neutral-700">{t.inventory.columns.category}</th>
+                  <th className="px-3 py-2 font-semibold text-neutral-700">{t.inventory.columns.condition}</th>
+                  <th className="px-3 py-2 font-semibold text-neutral-700">{t.inventory.columns.invNo}</th>
+                  <th className="px-3 py-2 font-semibold text-neutral-700">{t.inventory.columns.sn}</th>
+                  <th className="px-3 py-2 font-semibold text-neutral-700">{t.inventory.columns.photo}</th>
+                  <th className="px-3 py-2 font-semibold text-neutral-700">{t.inventory.columns.processor}</th>
                   <th className="px-3 py-2 font-semibold text-neutral-700 text-[11px]">CPU (norm)</th>
-                  <th className="px-3 py-2 font-semibold text-neutral-700">RAM</th>
+                  <th className="px-3 py-2 font-semibold text-neutral-700">{t.inventory.columns.ram}</th>
                   <th className="px-3 py-2 font-semibold text-neutral-700 text-[11px]">RAM (GB)</th>
-                  <th className="px-3 py-2 font-semibold text-neutral-700">Диск</th>
+                  <th className="px-3 py-2 font-semibold text-neutral-700">{t.inventory.columns.storage}</th>
                   <th className="px-3 py-2 font-semibold text-neutral-700 text-[11px]">Disc (GB)</th>
-                  <th className="px-3 py-2 font-semibold text-neutral-700">GPU</th>
-                  <th className="px-3 py-2 font-semibold text-neutral-700">Год</th>
-                  <th className="px-3 py-2 font-semibold text-neutral-700">Циклы АКБ</th>
-                  <th className="px-3 py-2 font-semibold text-neutral-700">АКБ</th>
-                  <th className="px-3 py-2 font-semibold text-neutral-700">Цена</th>
+                  <th className="px-3 py-2 font-semibold text-neutral-700">{t.inventory.columns.gpu}</th>
+                  <th className="px-3 py-2 font-semibold text-neutral-700">{t.inventory.columns.year}</th>
+                  <th className="px-3 py-2 font-semibold text-neutral-700">{t.inventory.columns.cycles}</th>
+                  <th className="px-3 py-2 font-semibold text-neutral-700">{t.inventory.columns.health}</th>
+                  <th className="px-3 py-2 font-semibold text-neutral-700">{t.inventory.columns.price}</th>
                   <th className="px-3 py-2 font-semibold text-neutral-700 text-[11px] text-emerald-700">Market Wholesale</th>
-                  <th className="px-3 py-2 font-semibold text-neutral-700">Кол-во</th>
-                  <th className="px-3 py-2 font-semibold text-neutral-700">Партия</th>
-                  <th className="px-3 py-2 font-semibold text-neutral-700">Локация</th>
-                  <th className="px-3 py-2 font-semibold text-neutral-700">Комментарии</th>
-                  <th className="px-3 py-2 font-semibold text-neutral-700">Статус</th>
-                  <th className="px-3 py-2 font-semibold text-neutral-700">Действия</th>
+                  <th className="px-3 py-2 font-semibold text-neutral-700">{t.inventory.columns.qty}</th>
+                  <th className="px-3 py-2 font-semibold text-neutral-700">{t.inventory.columns.batch}</th>
+                  <th className="px-3 py-2 font-semibold text-neutral-700">{t.inventory.columns.location}</th>
+                  <th className="px-3 py-2 font-semibold text-neutral-700">{t.inventory.columns.notes}</th>
+                  <th className="px-3 py-2 font-semibold text-neutral-700">{t.inventory.columns.status}</th>
+                  <th className="px-3 py-2 font-semibold text-neutral-700">{t.inventory.columns.actions}</th>
                 </tr>
               </thead>
               <tbody>
@@ -1237,7 +1207,7 @@ export default function MyInventory() {
                           (() => {
                             const device = parseDeviceFromQuery(it.brand || '', it.description || '')
                             const wholesale = estimatePrice(device, 'wholesale').mid
-                            return wholesale > 0 ? `€${wholesale}` : '—'
+                            return wholesale > 0 ? `€${wholesale.toLocaleString(locale, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}` : '—'
                           })()
                         ) : '—'}
                       </td>
@@ -1291,8 +1261,8 @@ export default function MyInventory() {
                           onChange={(e) => updateItem(it.id, { status: e.target.value as InventoryStatus })}
                           className="rounded border border-neutral-300 px-2 py-1 text-xs"
                         >
-                          {(Object.keys(STATUS_LABELS) as InventoryStatus[]).map((s) => (
-                            <option key={s} value={s}>{STATUS_LABELS[s]}</option>
+                          {(['available', 'sold', 'reserved', 'unavailable'] as InventoryStatus[]).map((s) => (
+                            <option key={s} value={s}>{t.inventory.statuses[s]}</option>
                           ))}
                         </select>
                       </td>
@@ -1302,7 +1272,7 @@ export default function MyInventory() {
                           onClick={() => removeItem(it.id)}
                           className="text-red-600 hover:underline text-xs"
                         >
-                          Удалить
+                          {t.users.table.delete}
                         </button>
                       </td>
                     </tr>

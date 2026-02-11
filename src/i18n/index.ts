@@ -21,7 +21,8 @@ export type SellerPortalLocaleKey = keyof typeof sellerPortalLocales
 export type SellerPortalLocale = (typeof sellerPortalLocales)[SellerPortalLocaleKey]
 
 export function getSellerPortalLocale(locale: string): SellerPortalLocale {
-  // Currently seller portal only supports en and ru
-  const key = (['en', 'ru'].includes(locale) ? locale : 'en') as SellerPortalLocaleKey
+  const key = Object.keys(sellerPortalLocales).includes(locale)
+    ? (locale as SellerPortalLocaleKey)
+    : 'en'
   return sellerPortalLocales[key]
 }

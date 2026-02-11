@@ -1,32 +1,36 @@
 import { Outlet, Link, useLocation } from 'react-router-dom'
 import { IconBook, IconGrid, IconPackage } from '../../components/CabinetIcons'
+import { useSellerLocale } from '../../i18n/SellerLocaleContext'
 
-const tabs = [
-  { label: 'База знаний', to: '/tools/knowledge', Icon: IconBook },
-  { label: 'Справочники NEXX', to: '/tools/references', Icon: IconGrid },
-  { label: 'Обновление прайса', to: '/my/inventory', Icon: IconPackage },
+const getTabs = (t: any) => [
+  { label: t.tools.knowledge, to: '/tools/knowledge', Icon: IconBook },
+  { label: t.tools.references, to: '/tools/references', Icon: IconGrid },
+  { label: t.tools.inventory, to: '/my/inventory', Icon: IconPackage },
 ]
 
 export default function ToolsLayout() {
+  const { t } = useSellerLocale()
   const location = useLocation()
   const isActive = (to: string) =>
     location.pathname === to || location.pathname.startsWith(to + '/')
+
+  const tabs = getTabs(t)
 
   return (
     <div className="min-h-screen bg-neutral-50">
       <div className="bg-gradient-to-br from-primary to-primary-light text-white py-8 shadow-header">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <Link to="/" className="text-sm text-white/70 hover:text-white transition-colors">
-            ← На сайт
+            ← {t.tools.backToSite}
           </Link>
-          <h1 className="mt-2 text-2xl font-bold">Инструменты</h1>
+          <h1 className="mt-2 text-2xl font-bold">{t.tools.title}</h1>
           <p className="mt-1 text-neutral-300 text-sm">
-            База знаний (по аналогии с NEXX), обновление прайса и остатков.
+            {t.tools.subtitle}
           </p>
         </div>
       </div>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <nav className="flex flex-wrap gap-2 mb-8" aria-label="Разделы инструментов">
+        <nav className="flex flex-wrap gap-2 mb-8" aria-label={t.tools.navLabel}>
           {tabs.map(({ label, to, Icon }) => (
             <Link
               key={to}

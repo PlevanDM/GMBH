@@ -44,7 +44,7 @@ export function authHeader(): Record<string, string> {
   return { Authorization: `Bearer ${s.token}` }
 }
 
-import { exportRfqToExcel } from '../utils/exportRfq'
+import { exportRfqToExcel, exportRfqToPdf } from '../utils/exportRfq'
 
 export async function exportRfq(id: string, format: 'pdf' | 'xlsx'): Promise<void> {
   // In a real app, this would be an API call.
@@ -64,9 +64,7 @@ export async function exportRfq(id: string, format: 'pdf' | 'xlsx'): Promise<voi
     if (format === 'xlsx') {
       exportRfqToExcel(rfq)
     } else {
-      // PDF fallback
-      alert('Экспорт в PDF будет доступен в полной версии. Пока используйте Excel.')
-      exportRfqToExcel(rfq)
+      await exportRfqToPdf(rfq)
     }
   } catch (e) {
     console.error('Export failed', e)

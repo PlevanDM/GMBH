@@ -2,15 +2,16 @@ import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom'
 import { useState, useEffect } from 'react'
 import { useAuth } from '../../auth/AuthContext'
 import { IconDashboard, IconPackage, IconSettings, IconCpu, IconUser, IconFileText, IconActivity } from '../../components/CabinetIcons'
+import { useSellerLocale, SELLER_LOCALE_KEYS } from '../../i18n/SellerLocaleContext'
 
-const tabs = [
-  { label: 'Дашборд', to: '/my', Icon: IconDashboard, exact: true },
-  { label: 'Запросы', to: '/my/rfqs', Icon: IconFileText, exact: false },
-  { label: 'Пользователи', to: '/my/users', Icon: IconUser, exact: false },
-  { label: 'Прайс', to: '/my/inventory', Icon: IconPackage, exact: false },
-  { label: 'Скаут цен', to: '/my/laptops', Icon: IconCpu, exact: false },
-  { label: 'Активность', to: '/my/activity', Icon: IconActivity, exact: false },
-  { label: 'Настройки', to: '/my/settings', Icon: IconSettings, exact: false },
+const getTabs = (t: any) => [
+  { label: t.nav.dashboard, to: '/my', Icon: IconDashboard, exact: true },
+  { label: t.nav.requests, to: '/my/rfqs', Icon: IconFileText, exact: false },
+  { label: t.nav.users, to: '/my/users', Icon: IconUser, exact: false },
+  { label: t.nav.price, to: '/my/inventory', Icon: IconPackage, exact: false },
+  { label: t.nav.scout, to: '/my/laptops', Icon: IconCpu, exact: false },
+  { label: t.nav.activity, to: '/my/activity', Icon: IconActivity, exact: false },
+  { label: t.nav.settings, to: '/my/settings', Icon: IconSettings, exact: false },
 ]
 
 function useIsSmallScreen(breakpoint = 640) {
@@ -29,7 +30,10 @@ export default function MyLayout() {
   const location = useLocation()
   const navigate = useNavigate()
   const { logout } = useAuth()
+  const { t, locale, setLocale } = useSellerLocale()
   const isMobile = useIsSmallScreen(640)
+
+  const tabs = getTabs(t)
 
   const isActive = (to: string, exact: boolean) =>
     exact ? location.pathname === to : location.pathname.startsWith(to)
@@ -39,25 +43,38 @@ export default function MyLayout() {
     navigate('/my/login', { replace: true })
   }
 
-  const currentTab = tabs.find((t) => isActive(t.to, t.exact)) ?? tabs[0]
+  const currentTab = tabs.find((tab) => isActive(tab.to, tab.exact)) ?? tabs[0]
 
   return (
     <div className="min-h-screen bg-neutral-50">
       {/* Header */}
       <div className="bg-gradient-to-br from-primary to-primary-light text-white py-4 sm:py-6 shadow-header">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-3">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-2 sm:gap-3">
           <div className="min-w-0 flex-1">
-            <Link to="/" className="text-xs sm:text-sm text-white/70 hover:text-white transition-colors">← На сайт</Link>
-            <h1 className="mt-1 text-lg sm:text-xl md:text-2xl font-bold truncate">Мой кабинет</h1>
-            <p className="mt-0.5 text-white/60 text-xs sm:text-sm hidden sm:block">Управление, прайс, остатки, заявки</p>
+            <Link to="/" className="text-[11px] sm:text-sm text-white/70 hover:text-white transition-colors">← {t.nav.backToSite}</Link>
+            <h1 className="mt-0.5 sm:mt-1 text-base sm:text-xl md:text-2xl font-bold truncate">{t.dashboard.title}</h1>
+            <p className="mt-0.5 text-white/60 text-xs sm:text-sm hidden sm:block">{t.dashboard.subtitle}</p>
           </div>
-          <button
-            type="button"
-            onClick={handleLogout}
-            className="text-xs sm:text-sm text-white/70 hover:text-white border border-white/30 hover:border-white/60 rounded-lg px-2.5 sm:px-4 py-1.5 sm:py-2 transition-colors whitespace-nowrap min-h-[36px] sm:min-h-[40px] shrink-0"
-          >
-            Выйти
-          </button>
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+            <select
+              value={locale}
+              onChange={(e) => setLocale(e.target.value)}
+              className="rounded-lg border border-white/30 bg-white/10 text-white py-1.5 sm:py-2 px-1.5 sm:px-3 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-white/50 cursor-pointer min-h-[36px] sm:min-h-[40px] w-[52px] sm:w-auto"
+            >
+              {SELLER_LOCALE_KEYS.map((key) => (
+                <option key={key} value={key} className="text-primary">
+                  {key.toUpperCase()}
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="text-xs sm:text-sm text-white/70 hover:text-white border border-white/30 hover:border-white/60 rounded-lg px-2 sm:px-4 py-1.5 sm:py-2 transition-colors whitespace-nowrap min-h-[36px] sm:min-h-[40px]"
+            >
+              {t.nav.logout}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -71,7 +88,7 @@ export default function MyLayout() {
                 value={currentTab.to}
                 onChange={(e) => navigate(e.target.value)}
                 className="w-full appearance-none rounded-xl border border-neutral-200 bg-white px-4 py-3 pr-10 text-sm font-medium text-neutral-800 shadow-card focus:border-accent focus:ring-2 focus:ring-accent/20 min-h-[48px]"
-                aria-label="Разделы кабинета"
+                aria-label={t.nav.sectionsLabel || "Sections"}
               >
                 {tabs.map(({ label, to }) => (
                   <option key={to} value={to}>{label}</option>
@@ -84,7 +101,7 @@ export default function MyLayout() {
           ) : (
             /* Tablet / Desktop: scrollable pill tabs */
             <div className="-mx-4 sm:mx-0 px-4 sm:px-0 overflow-x-auto scrollbar-hide">
-              <nav className="flex gap-2 min-w-max md:min-w-0 md:flex-wrap" aria-label="Разделы кабинета">
+              <nav className="flex gap-2 min-w-max md:min-w-0 md:flex-wrap" aria-label={t.nav.sectionsLabel || "Sections"}>
                 {tabs.map(({ label, to, Icon, exact }) => (
                   <Link
                     key={to}

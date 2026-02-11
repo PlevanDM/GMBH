@@ -3,24 +3,26 @@ import { Link } from 'react-router-dom'
 import { IconSettings, IconActivity, IconUpload, IconFileText, IconUser, IconCpu } from '../../components/CabinetIcons'
 import { useInventory } from '../../store/inventoryStore'
 import { useBuyer } from '../../store/buyerStore'
+import { useSellerLocale } from '../../i18n/SellerLocaleContext'
 import { estimatePrice, parseDeviceFromQuery } from '../../utils/priceEstimator'
 
-function formatDate(iso: string | null) {
+function formatDate(iso: string | null, locale: string) {
   if (!iso) return '—'
-  return new Date(iso).toLocaleString('ru-RU', {
+  return new Date(iso).toLocaleString(locale, {
     day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit',
   })
 }
 
-function formatCurrency(n: number) {
-  return n.toLocaleString('ru-RU', { minimumFractionDigits: 0, maximumFractionDigits: 0 })
+function formatCurrency(n: number, locale: string) {
+  return n.toLocaleString(locale, { minimumFractionDigits: 0, maximumFractionDigits: 0 })
 }
 
-const CONDITION_LABELS: Record<string, string> = { NEW: 'Новые', USED: 'Б/У', REFURBISHED: 'Восстановл.', FOR_PARTS: 'На запчасти' }
 const CONDITION_COLORS: Record<string, string> = { NEW: 'bg-emerald-500', USED: 'bg-blue-500', REFURBISHED: 'bg-amber-500', FOR_PARTS: 'bg-neutral-400' }
 
 export default function MyDashboard() {
+  const { t, locale } = useSellerLocale()
   const { items, lastUpdated, getAvailable, batches } = useInventory()
+  const conditionLabels: Record<string, string> = t.conditionValues as Record<string, string>
   const { rfqs, users } = useBuyer()
   const available = getAvailable()
 
@@ -102,14 +104,14 @@ export default function MyDashboard() {
     <>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
-          <h2 className="text-base sm:text-lg font-semibold text-primary">Дашборд</h2>
+          <h2 className="text-base sm:text-lg font-semibold text-primary">{t.dashboard.title}</h2>
           <p className="mt-1 text-neutral-600 text-xs sm:text-sm">
-            Сводка по витрине, заявкам и управлению.
+            {t.dashboard.subtitle}
           </p>
         </div>
         {lastUpdated && (
           <span className="text-[10px] sm:text-xs text-neutral-400 bg-neutral-100 rounded-full px-2 sm:px-3 py-1 shrink-0">
-            {formatDate(lastUpdated)}
+            {formatDate(lastUpdated, locale)}
           </span>
         )}
       </div>
@@ -117,9 +119,9 @@ export default function MyDashboard() {
       {/* KPI cards */}
       <div className="mt-4 sm:mt-6 grid grid-cols-2 gap-2 sm:gap-3 md:gap-4 lg:grid-cols-4">
         <KpiCard
-          label="На витрине"
+          label={t.dashboard.stockKpi}
           value={stats.availableCount}
-          sub={`из ${stats.totalCount} позиций`}
+          sub={t.dashboard.ofPositions.replace('{{total}}', stats.totalCount.toString())}
           icon={
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
@@ -128,9 +130,9 @@ export default function MyDashboard() {
           accent
         />
         <KpiCard
-          label="Сумма прайса"
-          value={`€${formatCurrency(stats.totalValue)}`}
-          sub={`${stats.brands} бренд. · ${stats.categories} кат.`}
+          label={t.dashboard.valueKpi}
+          value={`€${formatCurrency(stats.totalValue, locale)}`}
+          sub={`${stats.brands} ${t.scout.brand.toLowerCase()}. · ${stats.categories} ${t.dashboard.categories.toLowerCase().slice(0, 4)}.`}
           icon={
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -138,9 +140,9 @@ export default function MyDashboard() {
           }
         />
         <KpiCard
-          label="Заявки"
+          label={t.dashboard.requestsKpi}
           value={stats.rfqTotal}
-          sub={stats.rfqPending > 0 ? `${stats.rfqPending} ожидают` : 'все обработаны'}
+          sub={stats.rfqPending > 0 ? `${stats.rfqPending} ${t.rfq.stats.pending.toLowerCase()}` : '—'}
           icon={
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
@@ -149,9 +151,9 @@ export default function MyDashboard() {
           accent={stats.rfqPending > 0}
         />
         <KpiCard
-          label="Покупатели"
+          label={t.dashboard.buyersKpi}
           value={stats.buyerUsers}
-          sub={`${stats.activeBatches} партий`}
+          sub={`${stats.activeBatches} ${t.dashboard.activeLots}`}
           icon={
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" />
@@ -164,22 +166,22 @@ export default function MyDashboard() {
       {stats.rfqTotal > 0 && (
         <div className="mt-6 rounded-xl border border-neutral-200 bg-neutral-50 p-5">
           <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
-            <h3 className="text-sm font-semibold text-neutral-700">Воронка заявок</h3>
-            <Link to="/my/rfqs" className="text-xs text-accent hover:underline">Все запросы &rarr;</Link>
+            <h3 className="text-sm font-semibold text-neutral-700">{t.dashboard.funnelTitle}</h3>
+            <Link to="/my/rfqs" className="text-xs text-accent hover:underline">{t.rfq.title} &rarr;</Link>
           </div>
           <div className="flex gap-1.5 h-3 rounded-full overflow-hidden bg-neutral-200">
-            {stats.rfqDraft > 0 && <div className="bg-neutral-400 transition-all" style={{ width: `${(stats.rfqDraft / stats.rfqTotal) * 100}%` }} title={`Черновики: ${stats.rfqDraft}`} />}
-            {stats.rfqSent > 0 && <div className="bg-blue-500 transition-all" style={{ width: `${(stats.rfqSent / stats.rfqTotal) * 100}%` }} title={`Отправлены: ${stats.rfqSent}`} />}
-            {stats.rfqReview > 0 && <div className="bg-amber-500 transition-all" style={{ width: `${(stats.rfqReview / stats.rfqTotal) * 100}%` }} title={`На рассмотрении: ${stats.rfqReview}`} />}
-            {stats.rfqQuoted > 0 && <div className="bg-green-500 transition-all" style={{ width: `${(stats.rfqQuoted / stats.rfqTotal) * 100}%` }} title={`Предложения: ${stats.rfqQuoted}`} />}
-            {stats.rfqApproved > 0 && <div className="bg-emerald-500 transition-all" style={{ width: `${(stats.rfqApproved / stats.rfqTotal) * 100}%` }} title={`Утверждены: ${stats.rfqApproved}`} />}
+            {stats.rfqDraft > 0 && <div className="bg-neutral-400 transition-all" style={{ width: `${(stats.rfqDraft / stats.rfqTotal) * 100}%` }} title={`${t.rfq.statuses.DRAFT}: ${stats.rfqDraft}`} />}
+            {stats.rfqSent > 0 && <div className="bg-blue-500 transition-all" style={{ width: `${(stats.rfqSent / stats.rfqTotal) * 100}%` }} title={`${t.rfq.statuses.SENT}: ${stats.rfqSent}`} />}
+            {stats.rfqReview > 0 && <div className="bg-amber-500 transition-all" style={{ width: `${(stats.rfqReview / stats.rfqTotal) * 100}%` }} title={`${t.rfq.statuses.UNDER_REVIEW}: ${stats.rfqReview}`} />}
+            {stats.rfqQuoted > 0 && <div className="bg-green-500 transition-all" style={{ width: `${(stats.rfqQuoted / stats.rfqTotal) * 100}%` }} title={`${t.rfq.statuses.QUOTED}: ${stats.rfqQuoted}`} />}
+            {stats.rfqApproved > 0 && <div className="bg-emerald-500 transition-all" style={{ width: `${(stats.rfqApproved / stats.rfqTotal) * 100}%` }} title={`${t.rfq.statuses.APPROVED_BY_BUYER}: ${stats.rfqApproved}`} />}
           </div>
           <div className="mt-3 flex flex-wrap gap-3 text-xs">
-            <FunnelLabel color="bg-neutral-400" label="Черновики" count={stats.rfqDraft} />
-            <FunnelLabel color="bg-blue-500" label="Отправлены" count={stats.rfqSent} />
-            <FunnelLabel color="bg-amber-500" label="На рассмотрении" count={stats.rfqReview} />
-            <FunnelLabel color="bg-green-500" label="Предложения" count={stats.rfqQuoted} />
-            <FunnelLabel color="bg-emerald-500" label="Утверждены" count={stats.rfqApproved} />
+            <FunnelLabel color="bg-neutral-400" label={t.rfq.statuses.DRAFT} count={stats.rfqDraft} />
+            <FunnelLabel color="bg-blue-500" label={t.rfq.statuses.SENT} count={stats.rfqSent} />
+            <FunnelLabel color="bg-amber-500" label={t.rfq.statuses.UNDER_REVIEW} count={stats.rfqReview} />
+            <FunnelLabel color="bg-green-500" label={t.rfq.statuses.QUOTED} count={stats.rfqQuoted} />
+            <FunnelLabel color="bg-emerald-500" label={t.rfq.statuses.APPROVED_BY_BUYER} count={stats.rfqApproved} />
           </div>
         </div>
       )}
@@ -189,8 +191,8 @@ export default function MyDashboard() {
         <Link to="/my/rfqs" className="mt-4 flex items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 hover:bg-amber-100 transition-colors">
           <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-200 text-amber-700 text-lg font-bold">!</span>
           <div>
-            <p className="text-sm font-semibold text-amber-800">{stats.rfqPending} заявок ожидают обработки</p>
-            <p className="text-xs text-amber-600 mt-0.5">Нажмите, чтобы перейти к управлению запросами</p>
+            <p className="text-sm font-semibold text-amber-800">{t.dashboard.pendingAlert.replace('{{count}}', stats.rfqPending.toString())}</p>
+            <p className="text-xs text-amber-600 mt-0.5">{t.dashboard.pendingAction}</p>
           </div>
         </Link>
       )}
@@ -201,33 +203,33 @@ export default function MyDashboard() {
           <div className="bg-neutral-50 px-5 py-3 border-b border-neutral-200 flex items-center justify-between">
             <h3 className="text-sm font-semibold text-neutral-700 flex items-center gap-2">
               <IconCpu className="w-4 h-4 text-accent" />
-              Оценка складских остатков (Laptops)
+              {t.dashboard.valueKpi}
             </h3>
             <span className="text-[10px] text-neutral-400 font-medium uppercase tracking-wider">Smart Engine v2</span>
           </div>
           <div className="p-5 grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="space-y-1">
-              <p className="text-xs text-neutral-500 uppercase font-medium tracking-wide">Рыночная (Retail)</p>
-              <p className="text-2xl font-bold text-primary">€{formatCurrency(stats.estimatedMarketRetail)}</p>
-              <p className="text-[11px] text-neutral-400">Средняя цена на полке в ЕС</p>
+              <p className="text-xs text-neutral-500 uppercase font-medium tracking-wide">{t.scout.marketPrice}</p>
+              <p className="text-2xl font-bold text-primary">€{formatCurrency(stats.estimatedMarketRetail, locale)}</p>
+              <p className="text-[11px] text-neutral-400">{t.scout.retailDesc}</p>
             </div>
             <div className="space-y-1">
-              <p className="text-xs text-neutral-500 uppercase font-medium tracking-wide">Опт (Wholesale)</p>
-              <p className="text-2xl font-bold text-accent">€{formatCurrency(stats.estimatedWholesale)}</p>
-              <p className="text-[11px] text-neutral-400">Ожидаемая выручка при быстрой продаже</p>
+              <p className="text-xs text-neutral-500 uppercase font-medium tracking-wide">{t.scout.wholesalePrice}</p>
+              <p className="text-2xl font-bold text-accent">€{formatCurrency(stats.estimatedWholesale, locale)}</p>
+              <p className="text-[11px] text-neutral-400">{t.scout.wholesaleDesc}</p>
             </div>
             <div className="space-y-1">
-              <p className="text-xs text-neutral-500 uppercase font-medium tracking-wide">Закуп (Buyback)</p>
-              <p className="text-2xl font-bold text-emerald-600">€{formatCurrency(stats.estimatedBuyback)}</p>
-              <p className="text-[11px] text-neutral-400">Рекомендуемый порог входа</p>
+              <p className="text-xs text-neutral-500 uppercase font-medium tracking-wide">{t.scout.buybackPrice}</p>
+              <p className="text-2xl font-bold text-emerald-600">€{formatCurrency(stats.estimatedBuyback, locale)}</p>
+              <p className="text-[11px] text-neutral-400">{t.scout.buybackDesc}</p>
             </div>
           </div>
           <div className="px-5 py-3 bg-accent/5 border-t border-accent/10 flex items-center justify-between">
             <p className="text-xs text-accent-dark">
-              Инструмент оценки анализирует ваш прайс в реальном времени.
+              {t.scout.tip}
             </p>
             <Link to="/my/laptops" className="text-xs font-semibold text-accent hover:underline">
-              Детальный скаут &rarr;
+              {t.scout.title} &rarr;
             </Link>
           </div>
         </div>
@@ -238,7 +240,7 @@ export default function MyDashboard() {
         <div className="mt-4 sm:mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
           {/* Top brands bar chart */}
           <div className="rounded-xl border border-neutral-200 bg-white p-4 sm:p-5">
-            <h3 className="text-sm font-semibold text-neutral-700 mb-4">Топ бренды</h3>
+            <h3 className="text-sm font-semibold text-neutral-700 mb-4">{t.dashboard.topBrands}</h3>
             <div className="space-y-2.5">
               {topBrands.map(([brand, count]) => (
                 <div key={brand}>
@@ -254,13 +256,13 @@ export default function MyDashboard() {
                   </div>
                 </div>
               ))}
-              {topBrands.length === 0 && <p className="text-xs text-neutral-400">Нет данных</p>}
+              {topBrands.length === 0 && <p className="text-xs text-neutral-400">{t.dashboard.noData}</p>}
             </div>
           </div>
 
           {/* Categories */}
           <div className="rounded-xl border border-neutral-200 bg-white p-4 sm:p-5">
-            <h3 className="text-sm font-semibold text-neutral-700 mb-4">Категории</h3>
+            <h3 className="text-sm font-semibold text-neutral-700 mb-4">{t.dashboard.categories}</h3>
             <div className="space-y-2.5">
               {topCategories.map(([cat, count]) => {
                 const pct = available.length > 0 ? Math.round((count / available.length) * 100) : 0
@@ -276,13 +278,13 @@ export default function MyDashboard() {
                   </div>
                 )
               })}
-              {topCategories.length === 0 && <p className="text-xs text-neutral-400">Нет данных</p>}
+              {topCategories.length === 0 && <p className="text-xs text-neutral-400">{t.dashboard.noData}</p>}
             </div>
           </div>
 
           {/* Condition breakdown */}
           <div className="rounded-xl border border-neutral-200 bg-white p-4 sm:p-5 sm:col-span-2 lg:col-span-1">
-            <h3 className="text-sm font-semibold text-neutral-700 mb-4">Состояние товаров</h3>
+            <h3 className="text-sm font-semibold text-neutral-700 mb-4">{t.dashboard.condition}</h3>
             {conditionBreakdown.length > 0 ? (
               <>
                 <div className="flex h-4 rounded-full overflow-hidden bg-neutral-100 mb-4">
@@ -291,7 +293,7 @@ export default function MyDashboard() {
                       key={cond}
                       className={`${CONDITION_COLORS[cond] || 'bg-neutral-300'} transition-all`}
                       style={{ width: `${(count / available.length) * 100}%` }}
-                      title={`${CONDITION_LABELS[cond] || cond}: ${count}`}
+                      title={`${conditionLabels[cond] || cond}: ${count}`}
                     />
                   ))}
                 </div>
@@ -300,7 +302,7 @@ export default function MyDashboard() {
                     <div key={cond} className="flex items-center justify-between text-xs">
                       <span className="inline-flex items-center gap-1.5 text-neutral-600">
                         <span className={`w-2.5 h-2.5 rounded-full ${CONDITION_COLORS[cond] || 'bg-neutral-300'}`} />
-                        {CONDITION_LABELS[cond] || cond}
+                        {conditionLabels[cond] || cond}
                       </span>
                       <span className="text-neutral-500">{count} ({Math.round((count / available.length) * 100)}%)</span>
                     </div>
@@ -308,7 +310,7 @@ export default function MyDashboard() {
                 </div>
               </>
             ) : (
-              <p className="text-xs text-neutral-400">Нет данных</p>
+              <p className="text-xs text-neutral-400">{t.dashboard.noData}</p>
             )}
           </div>
         </div>
@@ -318,8 +320,8 @@ export default function MyDashboard() {
       {recentRfqs.length > 0 && (
         <div className="mt-4 sm:mt-6 rounded-xl border border-neutral-200 bg-white p-4 sm:p-5">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-semibold text-neutral-700">Последние заявки</h3>
-            <Link to="/my/rfqs" className="text-xs text-accent hover:underline">Все &rarr;</Link>
+            <h3 className="text-sm font-semibold text-neutral-700">{t.dashboard.recentRequests}</h3>
+            <Link to="/my/rfqs" className="text-xs text-accent hover:underline">{t.rfq.stats.total} &rarr;</Link>
           </div>
           <div className="space-y-2">
             {recentRfqs.map((r) => (
@@ -327,10 +329,10 @@ export default function MyDashboard() {
                 <RfqStatusDot status={r.status} />
                 <div className="flex-1 min-w-0">
                   <p className="text-sm text-neutral-800 font-medium truncate">{r.title}</p>
-                  <p className="text-xs text-neutral-400">{r.items.length} поз. · {new Date(r.createdAt).toLocaleDateString('ru-RU')}</p>
+                  <p className="text-xs text-neutral-400">{r.items.length} {t.rfq.table.positions.toLowerCase()} · {new Date(r.createdAt).toLocaleDateString(locale)}</p>
                 </div>
                 <span className={`shrink-0 inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${RFQ_STATUS_STYLES[r.status] || 'bg-neutral-100 text-neutral-600'}`}>
-                  {RFQ_STATUS_SHORT[r.status] || r.status}
+                  {t.rfq.statuses[r.status] || r.status}
                 </span>
               </div>
             ))}
@@ -340,13 +342,13 @@ export default function MyDashboard() {
 
       {/* Quick actions */}
       <div className="mt-8 border-t border-neutral-200 pt-6">
-        <h3 className="text-base font-semibold text-primary">Быстрые действия</h3>
+        <h3 className="text-base font-semibold text-primary">{t.dashboard.quickActions}</h3>
         <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          <QuickAction to="/my/inventory" icon={<IconUpload />} color="accent" title="Прайс и остатки" desc="Импорт Excel/CSV, маппинг колонок" />
-          <QuickAction to="/my/rfqs" icon={<IconFileText />} color="accent" title="Заявки" desc={stats.rfqPending > 0 ? `${stats.rfqPending} ожидают обработки` : 'Управление запросами'} />
-          <QuickAction to="/my/users" icon={<IconUser />} color="neutral" title="Пользователи" desc={`${stats.buyerUsers} покупателей`} />
-          <QuickAction to="/my/activity" icon={<IconActivity />} color="neutral" title="Активность" desc="Журнал действий и изменений" />
-          <QuickAction to="/my/settings" icon={<IconSettings />} color="neutral" title="Настройки" desc="Профиль, уведомления" />
+          <QuickAction to="/my/inventory" icon={<IconUpload />} color="accent" title={t.nav.price} desc={t.inventory.uploadTitle} />
+          <QuickAction to="/my/rfqs" icon={<IconFileText />} color="accent" title={t.nav.requests} desc={stats.rfqPending > 0 ? `${stats.rfqPending} ${t.rfq.stats.pending.toLowerCase()}` : t.rfq.title} />
+          <QuickAction to="/my/users" icon={<IconUser />} color="neutral" title={t.nav.users} desc={`${stats.buyerUsers} ${t.dashboard.buyersKpi.toLowerCase()}`} />
+          <QuickAction to="/my/activity" icon={<IconActivity />} color="neutral" title={t.nav.activity} desc={t.activity.title} />
+          <QuickAction to="/my/settings" icon={<IconSettings />} color="neutral" title={t.nav.settings} desc={t.settings.subtitle} />
         </div>
       </div>
     </>
@@ -355,16 +357,6 @@ export default function MyDashboard() {
 
 /* ─────── Sub components ─────── */
 
-const RFQ_STATUS_SHORT: Record<string, string> = {
-  DRAFT: 'Черновик',
-  SENT: 'Отправлен',
-  UNDER_REVIEW: 'В работе',
-  QUOTED: 'Предложение',
-  APPROVED_BY_BUYER: 'Утверждён',
-  REJECTED_BY_BUYER: 'Отклонён',
-  CLOSED: 'Закрыт',
-  CANCELLED: 'Отменён',
-}
 
 const RFQ_STATUS_STYLES: Record<string, string> = {
   DRAFT: 'bg-neutral-100 text-neutral-600',

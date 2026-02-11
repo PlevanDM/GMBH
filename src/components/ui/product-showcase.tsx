@@ -73,6 +73,8 @@ export interface ProductShowcaseProps {
   ctaLabel?: string;
   /** Back label */
   backLabel?: string;
+  /** Label for when price is null */
+  priceOnRequestLabel?: string;
   /** Theme gradient classes */
   gradientClasses?: string;
   /** Glow accent color class */
@@ -235,6 +237,7 @@ function ProductDetails({
   price,
   onRequestQuote,
   ctaLabel,
+  priceOnRequestLabel = 'Price on request',
 }: {
   title: string;
   brand?: string;
@@ -248,6 +251,7 @@ function ProductDetails({
   price?: string | null;
   onRequestQuote?: () => void;
   ctaLabel?: string;
+  priceOnRequestLabel?: string;
 }) {
   return (
     <motion.div
@@ -377,7 +381,7 @@ function ProductDetails({
             {price ? (
               <span className="text-lg font-bold text-neutral-900">{price}</span>
             ) : (
-              <span className="text-sm text-neutral-400 italic">Price on request</span>
+              <span className="text-sm text-neutral-400 italic">{priceOnRequestLabel}</span>
             )}
           </div>
         )}
@@ -459,6 +463,7 @@ export default function ProductShowcase({
   onBack,
   ctaLabel,
   backLabel,
+  priceOnRequestLabel,
   gradientClasses = 'from-slate-50 via-neutral-50 to-white',
   glowColor = 'bg-blue-300',
 }: ProductShowcaseProps) {
@@ -512,6 +517,7 @@ export default function ProductShowcase({
             price={price}
             onRequestQuote={onRequestQuote}
             ctaLabel={ctaLabel}
+            priceOnRequestLabel={priceOnRequestLabel}
           />
         </AnimatePresence>
       </div>

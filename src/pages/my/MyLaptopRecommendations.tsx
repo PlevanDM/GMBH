@@ -8,8 +8,7 @@ import { useInventory } from '../../store/inventoryStore'
 import { getMarketplaceLinks, getProductSearchQuery, type MarketplaceLink } from '../../utils/marketplaceUrls'
 import { fetchPriceScout, getPriceHistory, type PriceScoutResult, type MarketPrice } from '../../utils/priceScoutApi'
 import { quickEstimate, type PriceEstimate, parseDeviceFromQuery, type ValuationType } from '../../utils/priceEstimator'
-import { useBuyerLocale } from '../../i18n/BuyerLocaleContext'
-import { getSellerPortalLocale } from '../../i18n'
+import { useSellerLocale } from '../../i18n/SellerLocaleContext'
 
 /* ── Marketplace URLs ── */
 function getEbayUrl(query: string): string {
@@ -46,9 +45,9 @@ const MC: Record<string, { bg: string; text: string; border: string }> = {
 }
 
 /* ── Format ── */
-function fmtPrice(val: number | undefined | null): string {
+function fmtPrice(val: number | undefined | null, locale: string): string {
   if (val == null || (typeof val === 'number' && isNaN(val))) return '—'
-  return val.toLocaleString('de-DE', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })
+  return val.toLocaleString(locale, { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })
 }
 
 function ConfidenceBadge({ value }: { value: number }) {
@@ -63,7 +62,8 @@ function ConfidenceBadge({ value }: { value: number }) {
 }
 
 /* ── Source Price Card ── */
-function SourcePriceCard({ mp }: { mp: MarketPrice }) {
+function SourcePriceCard({ mp, locale }: { mp: MarketPrice; locale: string }) {
+  const { t } = useSellerLocale()
   const c = MC[mp.sourceId] || MC.idealo
   return (
     <a
@@ -75,17 +75,17 @@ function SourcePriceCard({ mp }: { mp: MarketPrice }) {
       <div className="flex items-center justify-between mb-2">
         <span className={`text-xs font-bold uppercase tracking-wider ${c.text}`}>{mp.source}</span>
         <div className="flex items-center gap-1.5">
-          <span className="text-[10px] text-neutral-500">{mp.count} offers</span>
+          <span className="text-[10px] text-neutral-500">{mp.count} {t.scout.offers}</span>
           <ExternalLink className={`w-3 h-3 ${c.text} opacity-40 group-hover:opacity-100`} />
         </div>
       </div>
       <div className="flex items-baseline gap-2">
-        <span className={`text-xl font-extrabold ${c.text}`}>{fmtPrice(mp.mid)}</span>
-        <span className="text-[11px] text-neutral-400 font-medium">median</span>
+        <span className={`text-xl font-extrabold ${c.text}`}>{fmtPrice(mp.mid, locale)}</span>
+        <span className="text-[11px] text-neutral-400 font-medium">{t.scout.median}</span>
       </div>
       <div className="flex items-center gap-3 mt-1.5 text-[11px] text-neutral-500">
-        <span className="flex items-center gap-0.5"><ArrowDown className="w-3 h-3 text-green-500" />{fmtPrice(mp.low)}</span>
-        <span className="flex items-center gap-0.5"><ArrowUp className="w-3 h-3 text-red-500" />{fmtPrice(mp.high)}</span>
+        <span className="flex items-center gap-0.5"><ArrowDown className="w-3 h-3 text-green-500" />{fmtPrice(mp.low, locale)}</span>
+        <span className="flex items-center gap-0.5"><ArrowUp className="w-3 h-3 text-red-500" />{fmtPrice(mp.high, locale)}</span>
       </div>
       <div className="flex items-center gap-2 mt-2">
         {mp.condition && (
@@ -94,7 +94,7 @@ function SourcePriceCard({ mp }: { mp: MarketPrice }) {
           </span>
         )}
         <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/60 text-neutral-400">
-          weight: {Math.round(mp.weight * 100)}%
+          {t.scout.weight}: {Math.round(mp.weight * 100)}%
         </span>
       </div>
     </a>
@@ -105,10 +105,13 @@ function SourcePriceCard({ mp }: { mp: MarketPrice }) {
 function SellRecommendation({
   priceResult,
   inventoryPrice,
+  locale,
 }: {
   priceResult: PriceScoutResult
   inventoryPrice?: number
+  locale: string
 }) {
+  const { t } = useSellerLocale()
   const { aggregated, estimate } = priceResult
   const marketMid = aggregated.weightedMid
 
@@ -127,48 +130,48 @@ function SellRecommendation({
     <div className="rounded-xl border border-accent/20 bg-gradient-to-r from-accent/5 to-transparent p-4">
       <h4 className="text-xs font-bold text-primary flex items-center gap-2 mb-3">
         <Target className="w-4 h-4 text-accent" />
-        Рекомендованные цены продажи
+        {t.scout.recommendedSellPrices}
       </h4>
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <div className="text-center">
           <div className="text-[10px] font-semibold text-neutral-500 uppercase mb-1">Grade A</div>
-          <div className="text-base font-extrabold text-green-600">{fmtPrice(sellPrices.gradeA)}</div>
+          <div className="text-base font-extrabold text-green-600">{fmtPrice(sellPrices.gradeA, locale)}</div>
         </div>
         <div className="text-center">
           <div className="text-[10px] font-semibold text-neutral-500 uppercase mb-1">Grade B</div>
-          <div className="text-base font-extrabold text-primary">{fmtPrice(sellPrices.gradeB)}</div>
+          <div className="text-base font-extrabold text-primary">{fmtPrice(sellPrices.gradeB, locale)}</div>
         </div>
         <div className="text-center">
           <div className="text-[10px] font-semibold text-neutral-500 uppercase mb-1">Grade C</div>
-          <div className="text-base font-extrabold text-amber-600">{fmtPrice(sellPrices.gradeC)}</div>
+          <div className="text-base font-extrabold text-amber-600">{fmtPrice(sellPrices.gradeC, locale)}</div>
         </div>
         <div className="text-center">
           <div className="text-[10px] font-semibold text-neutral-500 uppercase mb-1">Quick Sale</div>
-          <div className="text-base font-extrabold text-red-500">{fmtPrice(sellPrices.quickSale)}</div>
+          <div className="text-base font-extrabold text-red-500">{fmtPrice(sellPrices.quickSale, locale)}</div>
         </div>
       </div>
 
       {inventoryPrice != null && inventoryPrice > 0 && (
         <div className="mt-3 pt-3 border-t border-accent/10 flex flex-wrap items-center gap-3">
-          <span className="text-xs text-neutral-500">Ваша цена: <strong className="text-primary">{fmtPrice(inventoryPrice)}</strong></span>
-          <span className="text-xs text-neutral-500">Рынок: <strong className="text-primary">{fmtPrice(marketMid)}</strong></span>
+          <span className="text-xs text-neutral-500">{t.scout.yourPrice}: <strong className="text-primary">{fmtPrice(inventoryPrice, locale)}</strong></span>
+          <span className="text-xs text-neutral-500">{t.scout.market}: <strong className="text-primary">{fmtPrice(marketMid, locale)}</strong></span>
           {delta != null && deltaPct != null && (
             <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
               delta > 0 ? 'bg-green-50 text-green-600' : delta < 0 ? 'bg-red-50 text-red-600' : 'bg-neutral-100 text-neutral-500'
             }`}>
-              {delta > 0 ? '+' : ''}{fmtPrice(delta)} ({delta > 0 ? '+' : ''}{deltaPct}%)
+              {delta > 0 ? '+' : ''}{fmtPrice(delta, locale)} ({delta > 0 ? '+' : ''}{deltaPct}%)
             </span>
           )}
           {delta != null && delta < 0 && Math.abs(deltaPct!) > 15 && (
             <span className="text-[11px] text-amber-600 flex items-center gap-1">
               <AlertTriangle className="w-3 h-3" />
-              Ваша цена выше рынка — рассмотрите снижение
+              {t.scout.priceAboveMarket}
             </span>
           )}
           {delta != null && delta > 0 && deltaPct! > 20 && (
             <span className="text-[11px] text-green-600 flex items-center gap-1">
               <Zap className="w-3 h-3" />
-              Хорошая цена — ниже рынка
+              {t.scout.goodPriceBelowMarket}
             </span>
           )}
         </div>
@@ -184,7 +187,8 @@ function SellRecommendation({
 }
 
 /* ── Price History Mini-chart (text-based) ── */
-function PriceHistorySection({ query }: { query: string }) {
+function PriceHistorySection({ query, locale }: { query: string; locale: string }) {
+  const { t } = useSellerLocale()
   const history = getPriceHistory(query)
   if (history.length < 2) return null
 
@@ -198,13 +202,13 @@ function PriceHistorySection({ query }: { query: string }) {
     <div className="rounded-xl border border-neutral-200 bg-white p-4">
       <h4 className="text-xs font-bold text-neutral-500 uppercase tracking-wider flex items-center gap-2 mb-3">
         <History className="w-4 h-4 text-accent" />
-        История цен ({recent.length} запросов)
+        {t.scout.historyRequests.replace('{{count}}', recent.length.toString())}
       </h4>
       <div className="flex items-center gap-3 mb-3">
         <span className={`text-sm font-bold ${trend > 0 ? 'text-red-500' : trend < 0 ? 'text-green-600' : 'text-neutral-500'}`}>
-          {trend > 0 ? '+' : ''}{fmtPrice(trend)} ({trend > 0 ? '+' : ''}{trendPct}%)
+          {trend > 0 ? '+' : ''}{fmtPrice(trend, locale)} ({trend > 0 ? '+' : ''}{trendPct}%)
         </span>
-        <span className="text-[11px] text-neutral-400">за последние запросы</span>
+        <span className="text-[11px] text-neutral-400">{t.scout.lastRequests}</span>
       </div>
       {/* Mini bar chart */}
       <div className="flex items-end gap-1 h-16">
@@ -218,9 +222,9 @@ function PriceHistorySection({ query }: { query: string }) {
               <div
                 className={`w-full rounded-t transition-all ${i === recent.length - 1 ? 'bg-accent' : 'bg-accent/30'}`}
                 style={{ height: `${height}%` }}
-                title={`${fmtPrice(h.mid)} (${new Date(h.ts).toLocaleDateString('de-DE')})`}
+                title={`${fmtPrice(h.mid, locale)} (${new Date(h.ts).toLocaleDateString(locale)})`}
               />
-              <span className="text-[8px] text-neutral-400">{new Date(h.ts).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })}</span>
+              <span className="text-[8px] text-neutral-400">{new Date(h.ts).toLocaleDateString(locale, { day: '2-digit', month: '2-digit' })}</span>
             </div>
           )
         })}
@@ -232,8 +236,7 @@ function PriceHistorySection({ query }: { query: string }) {
 /* ═══════════════════════════════════════════════════════════════════════════ */
 
 export default function MyLaptopRecommendations() {
-  const { locale } = useBuyerLocale()
-  const st = useMemo(() => getSellerPortalLocale(locale), [locale])
+  const { t, locale } = useSellerLocale()
   const { items } = useInventory()
   const [brand, setBrand] = useState('')
   const [model, setModel] = useState('')
@@ -289,7 +292,7 @@ export default function MyLaptopRecommendations() {
     }).catch((err) => {
       if (!cancelled) {
         setLoading(false)
-        setFetchError(err?.message || 'Ошибка загрузки данных')
+        setFetchError(err?.message || t.dashboard.importError)
       }
     })
     return () => { cancelled = true }
@@ -309,7 +312,7 @@ export default function MyLaptopRecommendations() {
       setPriceResult(result); setLoading(false)
     }).catch((err) => {
       setLoading(false)
-      setFetchError(err?.message || 'Ошибка загрузки данных')
+      setFetchError(err?.message || t.dashboard.importError)
     })
   }, [activeQuery, brand, model, valuationType])
 
@@ -386,10 +389,10 @@ export default function MyLaptopRecommendations() {
         <div>
           <h2 className="text-lg font-bold text-primary flex items-center gap-2">
             <TrendingUp className="w-5 h-5 text-accent" />
-            {st.scout.title}
+            {t.scout.title}
           </h2>
           <p className="mt-1 text-sm text-neutral-500">
-            {st.scout.subtitle}
+            {t.scout.subtitle}
           </p>
         </div>
       </div>
@@ -413,7 +416,7 @@ export default function MyLaptopRecommendations() {
         </div>
         <div className="flex flex-col sm:flex-row gap-3">
           <div className="flex-1 min-w-0">
-            <label htmlFor="ps-brand" className="block text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-1.5">{st.scout.brand}</label>
+            <label htmlFor="ps-brand" className="block text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-1.5">{t.scout.brand}</label>
             <input
               id="ps-brand" type="text" value={brand}
               onChange={(e) => setBrand(e.target.value)}
@@ -423,7 +426,7 @@ export default function MyLaptopRecommendations() {
             />
           </div>
           <div className="flex-[2] min-w-0">
-            <label htmlFor="ps-model" className="block text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-1.5">{st.scout.model}</label>
+            <label htmlFor="ps-model" className="block text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-1.5">{t.scout.model}</label>
             <input
               id="ps-model" type="text" value={model}
               onChange={(e) => setModel(e.target.value)}
@@ -438,7 +441,7 @@ export default function MyLaptopRecommendations() {
               className="inline-flex items-center justify-center gap-2 rounded-lg bg-accent px-5 py-2.5 text-sm font-semibold text-white hover:bg-accent-hover active:scale-[0.97] transition-all min-h-[44px] disabled:opacity-50 disabled:cursor-not-allowed w-full sm:w-auto"
             >
               <Search className="w-4 h-4" />
-              {st.scout.findButton}
+              {t.scout.findButton}
             </button>
           </div>
         </div>
@@ -447,9 +450,9 @@ export default function MyLaptopRecommendations() {
         {liveEstimate && !activeQuery && (
           <div className="mt-3 rounded-lg bg-accent/5 border border-accent/10 px-4 py-2.5 flex flex-wrap items-center gap-3">
             <DollarSign className="w-4 h-4 text-accent shrink-0" />
-            <span className="text-xs text-neutral-600">{st.scout.estimate}:</span>
-            <span className="text-sm font-bold text-primary">{fmtPrice(liveEstimate.mid)}</span>
-            <span className="text-[11px] text-neutral-400">({fmtPrice(liveEstimate.low)} – {fmtPrice(liveEstimate.high)})</span>
+            <span className="text-xs text-neutral-600">{t.scout.estimate}:</span>
+            <span className="text-sm font-bold text-primary">{fmtPrice(liveEstimate.mid, locale)}</span>
+            <span className="text-[11px] text-neutral-400">({fmtPrice(liveEstimate.low, locale)} – {fmtPrice(liveEstimate.high, locale)})</span>
             <ConfidenceBadge value={liveEstimate.confidence} />
             {liveEstimate.refModelUsed && (
               <span className="text-[10px] text-accent bg-accent/10 px-2 py-0.5 rounded-full">ref: {liveEstimate.refModelUsed}</span>
@@ -463,14 +466,14 @@ export default function MyLaptopRecommendations() {
             <div className="flex flex-col sm:flex-row sm:items-end gap-3">
               <div className="flex-1 min-w-0">
                 <label htmlFor="ps-inventory" className="text-xs font-semibold text-neutral-500 uppercase tracking-wider flex items-center gap-1.5 mb-1.5">
-                  <Package className="w-3.5 h-3.5" /> {st.scout.inventorySelect}
+                  <Package className="w-3.5 h-3.5" /> {t.scout.inventorySelect}
                 </label>
                 <select id="ps-inventory"
                   onChange={(e) => { if (e.target.value) handleSelectInventory(e.target.value) }}
                   className="w-full sm:max-w-[480px] rounded-lg border border-neutral-200 bg-white px-3.5 py-2.5 text-sm text-primary focus:border-accent/40 focus:ring-2 focus:ring-accent/10 focus:outline-none min-h-[44px]"
                   value=""
                 >
-                  <option value="">— выбрать позицию —</option>
+                  <option value="">{t.scout.selectPosition}</option>
                   {inventoryDevices.map((it) => (
                     <option key={it.id} value={it.id}>
                       {[it.brand, it.description].filter(Boolean).join(' — ').slice(0, 80)}
@@ -483,7 +486,7 @@ export default function MyLaptopRecommendations() {
                 <button type="button" onClick={handleBatchAnalyze} disabled={batchRunning}
                   className="inline-flex items-center gap-1.5 rounded-lg px-3.5 py-2.5 text-xs font-semibold bg-accent/10 text-accent hover:bg-accent/20 border border-accent/20 transition-colors min-h-[44px] whitespace-nowrap disabled:opacity-50">
                   <ListChecks className="w-4 h-4" />
-                  {st.scout.batchButton} ({inventoryDevices.length})
+                  {t.scout.batchButton} ({inventoryDevices.length})
                 </button>
               )}
             </div>
@@ -497,22 +500,22 @@ export default function MyLaptopRecommendations() {
           <div className="px-4 py-3 border-b border-neutral-100 flex items-center justify-between">
             <h3 className="text-sm font-bold text-primary flex items-center gap-2">
               <ListChecks className="w-4 h-4 text-accent" />
-              {st.scout.batchButton} ({inventoryDevices.length} шт.)
+              {t.scout.batchButton} ({inventoryDevices.length} {t.common.pcs})
             </h3>
             <button type="button" onClick={() => setBatchResults({})}
               className="text-[10px] text-neutral-400 hover:text-neutral-600 transition-colors">
-              Скрыть
+              {t.scout.hide}
             </button>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
               <thead>
                 <tr className="bg-neutral-50 text-neutral-500">
-                  <th className="text-left px-4 py-2 font-semibold">Товар</th>
-                  <th className="text-right px-3 py-2 font-semibold">Ваша цена</th>
-                  <th className="text-right px-3 py-2 font-semibold">Рынок (оценка)</th>
-                  <th className="text-right px-3 py-2 font-semibold">Маржа</th>
-                  <th className="text-center px-3 py-2 font-semibold">Точность</th>
+                  <th className="text-left px-4 py-2 font-semibold">{t.scout.item}</th>
+                  <th className="text-right px-3 py-2 font-semibold">{t.scout.yourPrice}</th>
+                  <th className="text-right px-3 py-2 font-semibold">{t.scout.market}</th>
+                  <th className="text-right px-3 py-2 font-semibold">{t.scout.margin}</th>
+                  <th className="text-center px-3 py-2 font-semibold">{t.scout.accuracy}</th>
                   <th className="text-center px-2 py-2 font-semibold"></th>
                 </tr>
               </thead>
@@ -535,11 +538,11 @@ export default function MyLaptopRecommendations() {
                         )}
                       </td>
                       <td className="px-3 py-2.5 text-right font-medium text-neutral-600">
-                        {item.price ? fmtPrice(item.price) : '—'}
+                        {item.price ? fmtPrice(item.price, locale) : '—'}
                       </td>
                       <td className="px-3 py-2.5 text-right font-bold text-primary">
-                        {fmtPrice(est.mid)}
-                        <div className="text-[9px] text-neutral-400 font-normal">{fmtPrice(est.low)} – {fmtPrice(est.high)}</div>
+                        {fmtPrice(est.mid, locale)}
+                        <div className="text-[9px] text-neutral-400 font-normal">{fmtPrice(est.low, locale)} – {fmtPrice(est.high, locale)}</div>
                       </td>
                       <td className="px-3 py-2.5 text-right">
                         {delta != null && deltaPct != null ? (
@@ -554,7 +557,7 @@ export default function MyLaptopRecommendations() {
                       <td className="px-2 py-2.5">
                         <button type="button" onClick={() => handleSelectInventory(item.id)}
                           className="text-accent hover:text-accent-hover text-[10px] font-semibold whitespace-nowrap">
-                          Детали →
+                          {t.scout.detailsButton}
                         </button>
                       </td>
                     </tr>
@@ -573,7 +576,7 @@ export default function MyLaptopRecommendations() {
           {/* Header */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
-              <h3 className="text-sm font-semibold text-primary">{st.scout.resultsFor}:</h3>
+              <h3 className="text-sm font-semibold text-primary">{t.scout.resultsFor}:</h3>
               <p className="text-base font-bold text-accent mt-0.5">{activeQuery}</p>
             </div>
             <div className="flex items-center gap-2">
@@ -582,14 +585,14 @@ export default function MyLaptopRecommendations() {
               )}
               <button type="button" onClick={handleRefresh} disabled={loading}
                 className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold bg-neutral-100 text-neutral-600 hover:bg-neutral-200 border border-neutral-200 transition-colors min-h-[36px] disabled:opacity-50">
-                <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} /> {st.scout.refresh}
+                <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} /> {t.scout.refresh}
               </button>
               <button type="button" onClick={handleToggleSave}
                 className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold transition-colors min-h-[36px] ${
                   isSaved ? 'bg-accent/10 text-accent border border-accent/20' : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200 border border-neutral-200'
                 }`}>
                 {isSaved ? <BookmarkCheck className="w-3.5 h-3.5" /> : <Bookmark className="w-3.5 h-3.5" />}
-                {isSaved ? st.scout.saved : st.scout.save}
+                {isSaved ? t.scout.saved : t.scout.save}
               </button>
             </div>
           </div>
@@ -599,7 +602,7 @@ export default function MyLaptopRecommendations() {
             <div className="rounded-xl border-2 border-accent/20 bg-gradient-to-r from-accent/5 via-white to-accent/5 p-5 animate-pulse">
               <div className="flex items-center gap-2 mb-4">
                 <Loader2 className="w-5 h-5 text-accent animate-spin" />
-                <span className="text-sm font-semibold text-primary">Загружаем цены с 6 площадок…</span>
+                <span className="text-sm font-semibold text-primary">{t.scout.loadingSources}</span>
               </div>
               <div className="grid grid-cols-3 gap-4">
                 {[0,1,2].map(i => (
@@ -611,8 +614,8 @@ export default function MyLaptopRecommendations() {
               </div>
               {liveEstimate && (
                 <div className="mt-4 pt-3 border-t border-accent/10 text-xs text-neutral-500">
-                  Предварительная оценка: <strong className="text-primary">{fmtPrice(liveEstimate.mid)}</strong>
-                  <span className="text-neutral-400 ml-1">({fmtPrice(liveEstimate.low)} – {fmtPrice(liveEstimate.high)})</span>
+                  {t.scout.preliminaryEstimate}: <strong className="text-primary">{fmtPrice(liveEstimate.mid, locale)}</strong>
+                  <span className="text-neutral-400 ml-1">({fmtPrice(liveEstimate.low, locale)} – {fmtPrice(liveEstimate.high, locale)})</span>
                 </div>
               )}
             </div>
@@ -623,11 +626,11 @@ export default function MyLaptopRecommendations() {
             <div className="rounded-xl border border-red-200 bg-red-50/50 p-4 flex items-start gap-3">
               <AlertTriangle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-red-700">Не удалось загрузить рыночные данные</p>
+                <p className="text-sm font-semibold text-red-700">{t.scout.failedLoadMarket}</p>
                 <p className="text-xs text-red-600 mt-1">{fetchError}</p>
                 {liveEstimate && (
                   <p className="text-xs text-neutral-600 mt-2">
-                    Алгоритмическая оценка: <strong>{fmtPrice(liveEstimate.mid)}</strong> ({fmtPrice(liveEstimate.low)} – {fmtPrice(liveEstimate.high)})
+                    {t.scout.details}: <strong>{fmtPrice(liveEstimate.mid, locale)}</strong> ({fmtPrice(liveEstimate.low, locale)} – {fmtPrice(liveEstimate.high, locale)})
                   </p>
                 )}
               </div>
@@ -637,7 +640,7 @@ export default function MyLaptopRecommendations() {
                 className="shrink-0 inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold bg-red-100 text-red-700 hover:bg-red-200 transition-colors"
               >
                 <RefreshCw className="w-3.5 h-3.5" />
-                Повторить
+                {t.scout.retry}
               </button>
             </div>
           )}
@@ -648,7 +651,7 @@ export default function MyLaptopRecommendations() {
               <div className="flex flex-wrap items-center gap-2 mb-3">
                 <DollarSign className="w-5 h-5 text-accent" />
                 <h4 className="text-sm font-bold text-primary">
-                  {valuationType === 'buyback' ? st.scout.buybackPrice : valuationType === 'wholesale' ? st.scout.wholesalePrice : st.scout.marketPrice}
+                  {valuationType === 'buyback' ? t.scout.buybackPrice : valuationType === 'wholesale' ? t.scout.wholesalePrice : t.scout.marketPrice}
                 </h4>
                 {loading && <Loader2 className="w-4 h-4 text-accent animate-spin" />}
                 {priceResult && <ConfidenceBadge value={priceResult.aggregated.confidence} />}
@@ -657,53 +660,53 @@ export default function MyLaptopRecommendations() {
               <div className="grid grid-cols-3 gap-4">
                 <div className="text-center">
                   <div className="text-[11px] font-semibold text-neutral-500 uppercase tracking-wider mb-1 flex items-center justify-center gap-1">
-                    <ArrowDown className="w-3 h-3 text-green-500" /> Мин
+                    <ArrowDown className="w-3 h-3 text-green-500" /> {t.scout.min}
                   </div>
                   <div className="text-lg font-extrabold text-green-600">
-                    {fmtPrice(priceResult?.aggregated.low ?? liveEstimate?.low)}
+                    {fmtPrice(priceResult?.aggregated.low ?? liveEstimate?.low, locale)}
                   </div>
                 </div>
                 <div className="text-center">
                   <div className="text-[11px] font-semibold text-neutral-500 uppercase tracking-wider mb-1 flex items-center justify-center gap-1">
-                    <Minus className="w-3 h-3 text-accent" /> Средняя
+                    <Minus className="w-3 h-3 text-accent" /> {t.scout.avg}
                   </div>
                   <div className="text-2xl font-extrabold text-accent">
-                    {fmtPrice(priceResult?.aggregated.weightedMid ?? priceResult?.aggregated.mid ?? liveEstimate?.mid)}
+                    {fmtPrice(priceResult?.aggregated.weightedMid ?? priceResult?.aggregated.mid ?? liveEstimate?.mid, locale)}
                   </div>
                   {priceResult && priceResult.aggregated.weightedMid !== priceResult.aggregated.mid && (
                     <div className="text-[10px] text-neutral-400 mt-0.5">
-                    unweighted: {fmtPrice(priceResult.aggregated.mid)}
+                    unweighted: {fmtPrice(priceResult.aggregated.mid, locale)}
                     </div>
                   )}
                 </div>
                 <div className="text-center">
                   <div className="text-[11px] font-semibold text-neutral-500 uppercase tracking-wider mb-1 flex items-center justify-center gap-1">
-                    <ArrowUp className="w-3 h-3 text-red-500" /> Макс
+                    <ArrowUp className="w-3 h-3 text-red-500" /> {t.scout.max}
                   </div>
                   <div className="text-lg font-extrabold text-red-500">
-                    {fmtPrice(priceResult?.aggregated.high ?? liveEstimate?.high)}
+                    {fmtPrice(priceResult?.aggregated.high ?? liveEstimate?.high, locale)}
                   </div>
                 </div>
               </div>
 
               {priceResult && (
                 <div className="mt-3 pt-3 border-t border-accent/10 flex flex-wrap gap-3 text-[11px] text-neutral-500">
-                  <span>Источников: <strong>{priceResult.aggregated.sources}</strong></span>
-                  <span>Объявлений: <strong>{priceResult.aggregated.totalListings}</strong></span>
+                  <span>{t.scout.sourcesCount}: <strong>{priceResult.aggregated.sources}</strong></span>
+                  <span>{t.scout.listingsCount}: <strong>{priceResult.aggregated.totalListings}</strong></span>
                   {priceResult.sources.length > 0 && priceResult.sources.length < 4 && (
                     <span className="text-neutral-400">
-                      ({6 - priceResult.sources.length} из 6 площадок не ответили)
+                      ({t.scout.notAnswered.replace('{{count}}', (6 - priceResult.sources.length).toString())})
                     </span>
                   )}
                   {priceResult.sources.length === 0 && (
                     <span className="flex items-center gap-1 text-amber-600">
                       <AlertTriangle className="w-3 h-3" />
-                      Рыночные данные недоступны — показана алгоритмическая оценка
+                      {t.scout.marketDataUnavailable}
                     </span>
                   )}
                   {valuationType !== 'retail' && (
                     <span className="text-accent bg-accent/5 px-1.5 py-0.5 rounded">
-                      Применён коэффициент {valuationType === 'buyback' ? 'выкупа (0.65)' : 'опта (0.82)'}
+                      {t.scout.coefficientApplied} {valuationType === 'buyback' ? '(0.65)' : '(0.82)'}
                     </span>
                   )}
                 </div>
@@ -713,14 +716,14 @@ export default function MyLaptopRecommendations() {
 
           {/* ── Sell Recommendation ── */}
           {priceResult && (
-            <SellRecommendation priceResult={priceResult} inventoryPrice={inventoryPrice} />
+            <SellRecommendation priceResult={priceResult} inventoryPrice={inventoryPrice} locale={locale} />
           )}
 
           {/* ── Source Breakdown ── */}
           {priceResult && (
             <div>
               <h4 className="text-xs font-bold text-neutral-500 uppercase tracking-wider mb-2">
-                {st.scout.sources}
+                {t.scout.sources}
               </h4>
               {/* Source status badges */}
               {priceResult.sourceStatuses && priceResult.sourceStatuses.length > 0 && (
@@ -742,26 +745,26 @@ export default function MyLaptopRecommendations() {
               {priceResult.sources.length > 0 ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                   {priceResult.sources.map((s) => (
-                    <SourcePriceCard key={s.sourceId} mp={s} />
+                    <SourcePriceCard key={s.sourceId} mp={s} locale={locale} />
                   ))}
                 </div>
               ) : (
                 <div className="text-xs text-neutral-500 bg-neutral-50 rounded-lg px-4 py-3 border border-neutral-200">
-                  Ни одна площадка не вернула данных по этому запросу. Попробуйте упростить запрос или использовать более общее описание.
+                  {t.scout.noneReturned}
                 </div>
               )}
             </div>
           )}
 
           {/* ── Price History ── */}
-          {activeQuery && <PriceHistorySection query={activeQuery} />}
+          {activeQuery && <PriceHistorySection query={activeQuery} locale={locale} />}
 
           {/* ── Estimation Breakdown ── */}
           {priceResult && (
             <details className="rounded-xl border border-neutral-200 bg-white">
               <summary className="px-4 py-3 cursor-pointer text-xs font-semibold text-neutral-600 hover:text-primary transition-colors flex items-center gap-2">
                 <BarChart3 className="w-4 h-4 text-accent" />
-                {st.scout.details}
+                {t.scout.details}
                 <ConfidenceBadge value={priceResult.estimate.confidence} />
                 {priceResult.estimate.refModelUsed && (
                   <span className="text-[10px] text-accent bg-accent/10 px-2 py-0.5 rounded-full ml-2">
@@ -771,9 +774,9 @@ export default function MyLaptopRecommendations() {
               </summary>
               <div className="px-4 pb-4 pt-1">
                 <div className="flex items-baseline gap-3 mb-3">
-                  <span className="text-lg font-extrabold text-primary">{fmtPrice(priceResult.estimate.mid)}</span>
+                  <span className="text-lg font-extrabold text-primary">{fmtPrice(priceResult.estimate.mid, locale)}</span>
                   <span className="text-xs text-neutral-400">
-                    ({fmtPrice(priceResult.estimate.low)} – {fmtPrice(priceResult.estimate.high)})
+                    ({fmtPrice(priceResult.estimate.low, locale)} – {fmtPrice(priceResult.estimate.high, locale)})
                   </span>
                 </div>
                 <div className="space-y-1">
@@ -799,7 +802,7 @@ export default function MyLaptopRecommendations() {
 
           {/* ── Marketplace Links ── */}
           <div>
-            <h4 className="text-xs font-bold text-neutral-500 uppercase tracking-wider mb-3">Перейти на площадки</h4>
+            <h4 className="text-xs font-bold text-neutral-500 uppercase tracking-wider mb-3">{t.scout.goToPlatforms}</h4>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
               {allLinks.map((link) => (
                 <a key={link.id} href={link.url} target="_blank" rel="noopener noreferrer"
@@ -812,16 +815,16 @@ export default function MyLaptopRecommendations() {
                   {link.priceData ? (
                     <div className="mt-2 pt-2 border-t border-white/60">
                       <div className="flex items-baseline gap-1.5">
-                        <span className={`text-base font-extrabold ${link.color.text}`}>{fmtPrice(link.priceData.mid)}</span>
-                        <span className="text-[10px] text-neutral-400">median</span>
+                        <span className={`text-base font-extrabold ${link.color.text}`}>{fmtPrice(link.priceData.mid, locale)}</span>
+                        <span className="text-[10px] text-neutral-400">{t.scout.median}</span>
                       </div>
                       <span className="text-[10px] text-neutral-500">
-                        {fmtPrice(link.priceData.low)} – {fmtPrice(link.priceData.high)} · {link.priceData.count} offers
+                        {fmtPrice(link.priceData.low, locale)} – {fmtPrice(link.priceData.high, locale)} · {link.priceData.count} {t.scout.offers}
                       </span>
                     </div>
                   ) : (
                     <p className="mt-2 text-xs text-neutral-500 leading-relaxed">
-                      Поиск «{activeQuery.length > 30 ? activeQuery.slice(0, 30) + '…' : activeQuery}»
+                      {t.scout.searchFor} «{activeQuery.length > 30 ? activeQuery.slice(0, 30) + '…' : activeQuery}»
                     </p>
                   )}
                 </a>
@@ -834,10 +837,7 @@ export default function MyLaptopRecommendations() {
             <TrendingUp className="w-4 h-4 shrink-0 mt-0.5 text-amber-500" />
             <div>
               <p>
-                {st.scout.tip}
-              </p>
-              <p className="mt-1 text-amber-600/80">
-                Точность зависит от специфичности запроса: чем больше деталей (RAM, SSD, год, CPU) — тем точнее.
+                {t.scout.tip}
               </p>
             </div>
           </div>
@@ -848,7 +848,7 @@ export default function MyLaptopRecommendations() {
       {saved.length > 0 && (
         <div className="mt-8">
           <h3 className="text-sm font-semibold text-primary flex items-center gap-2 mb-3">
-            <Bookmark className="w-4 h-4 text-accent" /> Сохранённые запросы ({saved.length})
+            <Bookmark className="w-4 h-4 text-accent" /> {t.scout.savedRequests} ({saved.length})
           </h3>
           <div className="space-y-2">
             {saved.map((lookup) => (
@@ -856,16 +856,16 @@ export default function MyLaptopRecommendations() {
                 className="flex items-center gap-3 rounded-lg border border-neutral-200 bg-white px-4 py-3 group hover:border-accent/30 transition-colors">
                 <button type="button" onClick={() => handleLoadSaved(lookup)} className="flex-1 min-w-0 text-left">
                   <span className="text-sm font-medium text-primary truncate block">{lookup.query}</span>
-                  <span className="text-[11px] text-neutral-400">{new Date(lookup.savedAt).toLocaleDateString('de-DE')}</span>
+                  <span className="text-[11px] text-neutral-400">{new Date(lookup.savedAt).toLocaleDateString(locale)}</span>
                 </button>
                 <button type="button" onClick={() => handleCopyQuery(lookup.query, lookup.id)}
                   className="shrink-0 p-2 rounded-lg text-neutral-400 hover:text-neutral-700 hover:bg-neutral-100 transition-colors"
-                  title="Скопировать" aria-label="Скопировать запрос">
+                  title={t.scout.copy} aria-label={t.scout.copy}>
                   {copiedId === lookup.id ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4" />}
                 </button>
                 <button type="button" onClick={() => handleDeleteSaved(lookup.id)}
                   className="shrink-0 p-2 rounded-lg text-neutral-400 hover:text-red-600 hover:bg-red-50 transition-colors opacity-0 group-hover:opacity-100"
-                  title="Удалить" aria-label="Удалить сохранённый запрос">
+                  title={t.scout.delete} aria-label={t.scout.delete}>
                   <Trash2 className="w-4 h-4" />
                 </button>
               </div>
@@ -880,10 +880,9 @@ export default function MyLaptopRecommendations() {
           <div className="mx-auto w-16 h-16 rounded-2xl bg-accent/10 flex items-center justify-center mb-4">
             <TrendingUp className="w-8 h-8 text-accent" />
           </div>
-          <h3 className="text-lg font-bold text-primary">Начните поиск</h3>
+          <h3 className="text-lg font-bold text-primary">{t.scout.startSearch}</h3>
           <p className="mt-2 text-sm text-neutral-500 max-w-md mx-auto">
-            Введите бренд и модель — увидите реальные цены с 6 европейских площадок + алгоритмическую оценку по базе 200+ моделей.
-            Чем точнее запрос, тем точнее цена.
+            {t.scout.startSearchDesc}
           </p>
         </div>
       )}

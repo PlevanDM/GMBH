@@ -60,7 +60,7 @@ export default function BuyerLogin() {
 
         <form onSubmit={handleSubmit} className="mt-6 sm:mt-8 p-5 sm:p-6 rounded-2xl border border-neutral-200 bg-white shadow-card space-y-4 sm:space-y-5">
           <div>
-            <label htmlFor="buyer-email" className="block text-sm font-medium text-neutral-700 mb-1.5">Email</label>
+            <label htmlFor="buyer-email" className="block text-sm font-medium text-neutral-700 mb-1.5">{t.profile.users.table.email}</label>
             <input
               id="buyer-email"
               type="email"
@@ -95,7 +95,7 @@ export default function BuyerLogin() {
             disabled={loading}
             className="btn-primary w-full py-3 rounded-lg font-semibold text-base disabled:opacity-60 disabled:cursor-wait transition-all min-h-[48px]"
           >
-            {loading ? '...' : t.login.submit}
+            {loading ? `${t.loading}` : t.login.submit}
           </button>
           <p className="text-center text-xs text-neutral-400">
             {t.login.demoHint} <strong className="text-neutral-500">0909</strong>
